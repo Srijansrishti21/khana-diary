@@ -368,7 +368,7 @@ function itemHTML(it, idx) {
   const n = it.nutrients;
   return `<div class="item">
     <div class="item-head"><b>${qtyLabel(it.qty, it.desc)}</b><span class="item-kcal">${fmt(n.kcal)} kcal</span></div>
-    <small class="muted">${fmt(n.protein_g, 1)} g protein · ${fmt(n.carb_g)} g carbs · ${fmt(n.fat_g, 1)} g fat
+    <small class="muted">${n.protein_g == null ? "macros not published by the brand" : `${fmt(n.protein_g, 1)} g protein · ${fmt(n.carb_g)} g carbs · ${fmt(n.fat_g, 1)} g fat`}
       ${it.confirm ? ` <span class="tag warn">guessed from “${esc(it.matched_from)}”</span>` : ""}</small>
     ${it.sizes && it.sizes.length ? `${it.ask ? `<div class="q muted">${esc(it.ask)}</div>` : ""}<div class="examples">${it.sizes.map(s =>
       `<button type="button" class="chip" aria-pressed="${s.active}" data-idx="${idx}" data-replace="${esc(s.text)}">${esc(s.label)}</button>`).join("")}</div>` : ""}

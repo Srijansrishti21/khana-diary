@@ -55,7 +55,8 @@
   const titleCase = w => w.charAt(0).toUpperCase() + w.slice(1);
 
   // ---------- meal text (text_log.py) ----------
-  const NUMBER_WORDS = { half: 0.5, aadha: 0.5, adha: 0.5, quarter: 0.25, paav: 0.25, a: 1, an: 1, one: 1, ek: 1, two: 2, do: 2,
+  const NUMBER_WORDS = { half: 0.5, aadha: 0.5, adha: 0.5, aadhi: 0.5, aadhe: 0.5, dedh: 1.5, dhai: 2.5,
+    paune: 0.75, dozen: 12, couple: 2, seven: 7, saat: 7, eight: 8, aath: 8, ten: 10, das: 10, quarter: 0.25, paav: 0.25, a: 1, an: 1, one: 1, ek: 1, two: 2, do: 2,
     three: 3, teen: 3, four: 4, char: 4, chaar: 4, five: 5, paanch: 5, six: 6, chhe: 6 };
   const SIZE_WORDS = { small: "small", chhota: "small", chota: "small", mini: "small", medium: "medium", regular: "medium",
     normal: "medium", large: "large", big: "large", bada: "large", bade: "large", badi: "large" };
@@ -63,7 +64,14 @@
     plates: "plate", glasses: "glass", cups: "cup", plate: "plate", glass: "glass", cup: "cup", tsp: "tsp",
     teaspoon: "tsp", spoon: "tsp", chammach: "tsp", tbsp: "tbsp", tablespoon: "tbsp", piece: "piece", pieces: "piece",
     pcs: "piece", slice: "slice", pack: "pack", packet: "pack", chiplet: "pack", sachet: "pack",
-    g: "g", gm: "g", gms: "g", gram: "g", grams: "g" };
+    g: "g", gm: "g", gms: "g", gram: "g", grams: "g", pc: "piece", nos: "piece" };
+  const SUGAR_MODS = [[/\b(without sugar|no sugar|bina (?:cheeni|chini|shakkar)|sugar ?free|sugarless|unsweetened|fika|pheeka|feeka)\b/g, 0.0],
+    [/\b(less sugar|kam (?:cheeni|chini|meetha)|half sugar)\b/g, 0.5]];
+  const OIL_MODS = [[/\b(without oil|no oil|oil ?free|bina tel|zero oil)\b/g, 0.1],
+    [/\b(less oil|kam tel|low oil|light oil|less ghee|kam ghee|less butter)\b/g, 0.5]];
+  const ADDED_SUGAR_G = 6;
+  const BRAND_WINS = new Set(["maggi"]);
+  const BRAND_SIZE = { small: ["small", "regular"], medium: ["medium"], large: ["large"], regular: ["regular"] };
   const PLATE_BY_DEFAULT = new Set(["pav_bhaji", "misal_pav", "chole_kulche", "veg_momos", "chicken_momos", "paneer_momos",
     "mutton_momos", "pork_momos", "fried_momos", "tandoori_momos"]);
   const FILLER_SIZE = new Set(["smallest", "biggest"]);
@@ -109,6 +117,37 @@
         n = n.trim().toLowerCase();
         if (n.length > 2) setDefault(n, ["book", code]);
       }
+    }
+    const BRANDED = Object.fromEntries((DATA.branded || []).map(b => [b.id, b]));
+    const generic = new Set(names.keys());
+    for (const b of DATA.branded || []) {
+      for (let n of [`${b.brand} ${b.name}`, b.name, ...(b.aliases || [])]) {
+        n = n.toLowerCase().replace(/'/g, "");
+        if (generic.has(n) && !BRAND_WINS.has(n)) continue;
+        names.set(n, ["brand", b.id]);
+      }
+    }
+    const stem = id => id.slice(0, id.lastIndexOf("_"));
+    function brandPick(key, size, qty, counted) {
+      const b = BRANDED[key], fam = Object.values(BRANDED).filter(x => stem(x.id) === stem(b.id));
+      if (size && fam.length > 1) {
+        const x = fam.find(x => BRAND_SIZE[size].some(w => (x.name + " " + x.serving_label).toLowerCase().includes(w)));
+        if (x) return [x, qty];
+      }
+      const m = b.serving_label.match(/^(\d+) pieces?/);
+      if (counted && m) {
+        const exact = fam.find(x => new RegExp(`^${Math.trunc(qty)} pieces?`).test(x.serving_label));
+        if (exact) return [exact, 1];
+        return [b, qty / parseInt(m[1], 10)];
+      }
+      return [b, qty];
+    }
+    function brandFromContext(food, prev) {
+      if (!prev || prev.kind !== "brand") return null;
+      const brand = BRANDED[prev.id].brand, words = food.split(/\s+/).filter(Boolean);
+      const hit = Object.values(BRANDED).find(x => x.brand === brand &&
+        words.every(w => (x.name.toLowerCase().match(/[a-z]+/g) || []).includes(w)));
+      return hit ? hit.id : null;
     }
     const nameKeys = [...names.keys()];
     const vocab = [...new Set(nameKeys.flatMap(n => n.split(/\s+/).filter(w => w.length > 2)))].sort();
@@ -194,7 +233,11 @@
     function analyze(text, mine = {}) {
       const items = [];
       for (let chunk of splitItems(text)) {
-        let [qty, size, unit, food] = parseItem(chunk);
+        const found = mods => { const m = mods.find(([re]) => { re.lastIndex = 0; return re.test(chunk); }); return m ? m[1] : null; };
+        const sugarF = found(SUGAR_MODS), oilF = found(OIL_MODS);
+        let clean = chunk;
+        for (const [re] of [...SUGAR_MODS, ...OIL_MODS]) clean = clean.replace(re, " ");
+        let [qty, size, unit, food] = parseItem(clean);
         const counted = qty !== null; qty = qty || 1;
         if (!food) continue;
         let item = { text: chunk, qty };
@@ -232,10 +275,16 @@
             qty = prev.qty; item = { text: chunk, qty: prev.qty };
           }
         }
+        if (!hit) { const ctx = brandFromContext(food, prev); if (ctx) { hit = ["brand", ctx]; score = 0.9; } }
         if (!hit) { items.push({ ...item, status: "unknown", suggestions: suggestionsFor(food) }); continue; }
         let [kind, key] = hit;
         let sizes = [], ask = null, row, desc;
-        if (kind === "book") {
+        if (kind === "brand") {
+          const brandSize = /\bregular\b/.test(chunk) ? "regular" : size;
+          let b; [b, qty] = brandPick(key, brandSize, qty, counted); key = b.id; row = {};
+          for (const k of NUTRIENT_KEYS) if (b[k] != null) row[k] = b[k];
+          desc = `${b.serving_label} ${b.name} (${b.brand})`;
+        } else if (kind === "book") {
           const b = DATA.book[key];
           let [g, unitName] = (BOOK_SERVING_G.find(([re]) => re.test(b.dish)) || [null, null, null]).slice(1);
           if (unit === "katori" || unit === "plate" || g) {
@@ -267,15 +316,31 @@
           if (unit === "piece" && (d.serving === "katori" || d.serving === "small_katori") && d.category === "curry") {
             const frac = PIECE_IN_GRAVY_G / d.serving_g;
             desc = `piece with gravy of ${d.dish} (~${(qty * frac).toFixed(1)} ${d.serving.replace(/_/g, " ")})`;
-            row = {}; for (const k of NUTRIENT_KEYS) if (d.n[k] != null) row[k] = d.n[k] * frac;
+            row = {}; for (const k of [...NUTRIENT_KEYS, "added_fat_g"]) if (d.n[k] != null) row[k] = d.n[k] * frac;
           }
           if (plateOf[key] && (unit === "plate" || (unit === null && !counted && PLATE_BY_DEFAULT.has(key)))) {
             row = DATA.portions[plateOf[key]].n; desc = DATA.portions[plateOf[key]].label; sizes = [];
             kind = "plate"; key = plateOf[key];
           }
         }
+        const nutrients = {};
+        for (const k of NUTRIENT_KEYS) if (row[k] != null && !Number.isNaN(row[k])) nutrients[k] = row[k] * qty;
+        const sweetDrink = kind === "dish" && DATA.dishes[key] && DATA.dishes[key].category === "beverage";
+        if (sugarF !== null && sweetDrink) {
+          const cut = ADDED_SUGAR_G * (1 - sugarF) * qty;
+          for (const [k, v] of [["kcal", 4 * cut], ["carb_g", cut], ["sugar_g", cut]]) if (k in nutrients) nutrients[k] = Math.max(0, nutrients[k] - v);
+          desc += sugarF === 0 ? " (no sugar)" : " (less sugar)";
+        }
+        if (oilF !== null && row.added_fat_g > 0) {
+          const cut = row.added_fat_g * (1 - oilF) * qty;
+          nutrients.kcal = Math.max(0, (nutrients.kcal || 0) - 9 * cut);
+          nutrients.fat_g = Math.max(0, (nutrients.fat_g || 0) - cut);
+          desc += oilF > 0.1 ? " (less oil)" : " (almost no oil)";
+        }
+        for (const k of Object.keys(nutrients)) nutrients[k] = round2(nutrients[k]);
+        item.qty = Math.round(qty * 1000) / 1000;
         items.push({ ...item, status: "ok", kind, id: key, desc, confirm: score < 0.85, matched_from: food, sizes,
-          ask: typeof ask === "string" ? ask : null, nutrients: pick(row, qty) });
+          ask: typeof ask === "string" ? ask : null, nutrients });
       }
       return items;
     }
