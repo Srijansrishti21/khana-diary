@@ -59,7 +59,7 @@
     paune: 0.75, dozen: 12, couple: 2, seven: 7, saat: 7, eight: 8, aath: 8, ten: 10, das: 10, quarter: 0.25, paav: 0.25, a: 1, an: 1, one: 1, ek: 1, two: 2, do: 2,
     three: 3, teen: 3, four: 4, char: 4, chaar: 4, five: 5, paanch: 5, six: 6, chhe: 6 };
   const SIZE_WORDS = { small: "small", chhota: "small", chota: "small", mini: "small", medium: "medium", regular: "medium",
-    normal: "medium", large: "large", big: "large", bada: "large", bade: "large", badi: "large" };
+    normal: "medium", large: "large", big: "large", bada: "large", bade: "large", badi: "large", handful: "small", mutthi: "small" };
   const UNIT_WORDS = { katori: "katori", katoris: "katori", "katori's": "katori", bowl: "katori", bowls: "katori",
     plates: "plate", glasses: "glass", cups: "cup", plate: "plate", glass: "glass", cup: "cup", tsp: "tsp",
     teaspoon: "tsp", spoon: "tsp", chammach: "tsp", tbsp: "tbsp", tablespoon: "tbsp", piece: "piece", pieces: "piece",
@@ -93,9 +93,9 @@
   function createEngine(DATA) {
     // names: lowercase name -> [kind, id]; insertion order mirrors the Python dict
     const names = new Map();
-    const setDefault = (k, v) => { if (!names.has(k)) names.set(k, v); };
+    const setDefault = (k, v) => { if (!names.has(k)) names.set(k, v); };  // first dish keeps a shared short name
     for (const [id, d] of Object.entries(DATA.dishes)) {
-      names.set(d.dish.split("(")[0].trim().toLowerCase(), ["dish", id]);
+      setDefault(d.dish.split("(")[0].trim().toLowerCase(), ["dish", id]);
       names.set(id.replace(/_/g, " "), ["dish", id]);
       for (const a of DATA.aliases[id] || []) names.set(a.toLowerCase(), ["dish", id]);
     }
