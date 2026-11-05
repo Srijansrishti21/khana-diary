@@ -304,7 +304,16 @@ async function importBackup(file) {
   Local.set("recipes", { ...Local.get("recipes", {}), ...d.recipes });
   if (d.profile && Object.keys(d.profile).length) Local.set("profile", d.profile);
 }
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  // When a new version has been downloaded and takes over, reload once so the new data is used
+  // straight away (otherwise the first open after an update still shows the old version).
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadController && !reloaded) { reloaded = true; location.reload(); }
+  });
+  navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {});
+}
 
 function renderMeals() {
   $("#meals").innerHTML = MEALS.map(m => `<button type="button" class="chip" aria-pressed="${m === state.meal}" data-m="${m}">${m}</button>`).join("");
