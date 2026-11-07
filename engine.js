@@ -63,7 +63,7 @@
   const UNIT_WORDS = { katori: "katori", katoris: "katori", "katori's": "katori", bowl: "katori", bowls: "katori",
     plates: "plate", glasses: "glass", cups: "cup", plate: "plate", glass: "glass", cup: "cup", tsp: "tsp",
     teaspoon: "tsp", spoon: "tsp", chammach: "tsp", tbsp: "tbsp", tablespoon: "tbsp", piece: "piece", pieces: "piece",
-    pcs: "piece", slice: "slice", pack: "pack", packet: "pack", chiplet: "pack", sachet: "pack",
+    pcs: "piece", slice: "slice", slices: "slice", scoop: "scoop", scoops: "scoop", pack: "pack", packet: "pack", chiplet: "pack", sachet: "pack",
     g: "g", gm: "g", gms: "g", grams: "g", pc: "piece", nos: "piece" };  // not "gram": horse gram, bengal gram
   const SUGAR_MODS = [[/\b(without sugar|no sugar|bina (?:cheeni|chini|shakkar)|sugar ?free|sugarless|unsweetened|fika|pheeka|feeka)\b/g, 0.0],
     [/\b(less sugar|kam (?:cheeni|chini|meetha)|half sugar)\b/g, 0.5]];
@@ -82,6 +82,17 @@
   };
   const BOOK_SERVING_G = [[/rice|khichdi|khichri|khitchdi|pulao|biryani|biriyani|upma|poha|pongal/i, 200, "plate"],
     [/dal|curry|sabzi|bhaji|kofta|korma|kadhi|sambar|rasam|raita|kheer|payasam/i, 150, "katori"]];
+  // Grams for a container typed by the user ("1 katori lemon rice"), whatever the dish's own serving is.
+  const UNIT_G = { katori: 150, plate: 200, tbsp: 15, tsp: 5 };
+  const KATORI_G = { small: 100, medium: 150, large: 250 };
+  // A soup, salad or cereal "bowl" is bigger than a katori; for dal or sabzi people mean a katori.
+  const BOWL_G = [[/soup|shorba/i, 250], [/salad|overnight oats|cornflakes|muesli|porridge|daliya/i, 200]];
+  // Size of each dish serving unit, to rescale it to the container typed (a katori is a volume, not 150 g of makhana).
+  const SERVING_NOMINAL_G = { katori: 150, small_katori: 100, plate: 200, small_plate: 150, portion: 150, tbsp_portion: 30 };
+  // Words that can be dropped when nothing matches: "karela sabzi" -> "karela", "veg uttapam" -> "uttapam".
+  const OPTIONAL_WORDS = new Set(["sabzi", "sabji", "subzi", "bhaji", "vegetable", "veg", "plain", "toast", "homemade", "simple"]);
+  // "omelette of 3 eggs", "3 egg omelette": count eggs, not omelettes.
+  const EGG_COUNT = /\b(?:of |with )?(\d+|one|two|three|four|five|six|ek|do|teen|char|chaar)\s+(?:egg whites?|eggs?|whites?|ande|anda)\b/;
   const DESCRIBERS = new Set(["vegetable", "vegetables", "veg", "veggies", "mixed", "sabzi", "sabzian"]);
   const PIECE_IN_GRAVY_G = 60;
   const FILLER = new Set(["of", "with", "and", "ka", "ki", "ke", "wala", "wali", "some", "thoda", "thodi", "had", "ate",
@@ -118,6 +129,9 @@
         if (n.length > 2) setDefault(n, ["book", code]);
       }
     }
+    for (const [k, al] of Object.entries(DATA.aliases)) {
+      if (k.startsWith("book:") && DATA.book[k.slice(5)]) for (const a of al) names.set(a.toLowerCase(), ["book", k.slice(5)]);
+    }
     const BRANDED = Object.fromEntries((DATA.branded || []).map(b => [b.id, b]));
     const generic = new Set(names.keys());
     for (const b of DATA.branded || []) {
@@ -153,9 +167,13 @@
     const vocab = [...new Set(nameKeys.flatMap(n => n.split(/\s+/).filter(w => w.length > 2)))].sort();
     const numberedNames = nameKeys.filter(n => /\d/.test(n)).sort((x, y) => y.length - x.length);
 
+    // Names that contain "with"/"and" stay one food: "oats with milk", "dalia with milk".
+    const joinedNames = nameKeys.filter(n => /\b(with|and)\b/.test(n) && !/\d/.test(n)).sort((x, y) => y.length - x.length)
+      .map(n => [new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), n.replace(/ /g, "§").replace(/\b(with|and)\b/g, w => w.toUpperCase())]);
     function splitItems(text) {
       text = text.toLowerCase().replace(/\+/g, " and ").replace(/&/g, " and ");
-      return text.split(/,|\band\b|\bwith\b|\baur\b|\bsath\b|\bsaath\b/).map(s => s.trim()).filter(Boolean);
+      for (const [re, prot] of joinedNames) text = text.replace(re, prot);
+      return text.split(/,|\band\b|\bwith\b|\baur\b|\bsath\b|\bsaath\b/).map(s => s.trim().toLowerCase()).filter(Boolean);
     }
     function protectNumbered(chunk) {
       for (const n of numberedNames) {
@@ -180,19 +198,30 @@
       const food = words.join(" ").replace(/§/g, " ").replace(/sixfive/g, "65");
       return [qty, size, unit, food];
     }
+    // Dropped letters (Hinglish shorthand) are forgiven more than changed letters: "chickpea" is not "chicken".
     function correctTokens(food) {
       return food.split(/\s+/).filter(Boolean).map(w => {
         if (!vocab.includes(w) && w.length > 3) {
-          const close = closeMatches(w, vocab, 3, 0.72).filter(c => Math.abs(c.length - w.length) <= 2);
+          const close = closeMatches(w, vocab, 5, 0.75).filter(c => Math.abs(c.length - w.length) <= 2
+            && (ratio(w, c) >= 0.82 || c.length > w.length));
+          close.sort((x, y) => (!x.startsWith(w)) - (!y.startsWith(w)));  // "steam" -> "steamed", not "stem"
           return close.length ? close[0] : w;
         }
         return w;
       }).join(" ");
     }
+    // Every typed word must be (nearly) a word of the matched name, or two of its words run together.
+    function wordsAgree(food, name) {
+      const have = name.split(/\s+/).filter(Boolean);
+      const all = [...have, ...have.slice(0, -1).map((a, i) => a + have[i + 1])];
+      return food.split(/\s+/).filter(w => w.length > 2)
+        .every(w => all.some(h => w === h || h.startsWith(w) || ratio(w, h) >= 0.82));
+    }
     function match(food) {
       food = correctTokens(food);
       if (names.has(food)) return [names.get(food), 1.0];
-      const best = closeMatches(food, nameKeys, 1, 0.6);
+      // Closest name whose words all agree: "soya tikki" is not "soya chikki", "chickpea" is not "chicken".
+      const best = closeMatches(food, nameKeys, 5, 0.6).filter(n => wordsAgree(food, n)).slice(0, 1);
       const typed = new Set(food.split(/\s+/).filter(Boolean));
       if (best.length && typed.size > 1) {
         const bestWords = new Set(best[0].split(/\s+/));
@@ -206,6 +235,13 @@
       }
       return [null, 0];
     }
+    function matchLoose(food) {
+      const [hit, score] = match(food);
+      if (hit) return [hit, score];
+      const core = food.split(/\s+/).filter(w => w && !OPTIONAL_WORDS.has(w)).join(" ");
+      return core && core !== food ? match(core) : [null, 0];
+    }
+    const eggsIn = dish => { const m = dish.match(/(\d+) (?:eggs?|whites?)/); return m ? parseInt(m[1], 10) : null; };
     function suggestionsFor(food, n = 5) {
       const seen = new Set(), out = [];
       for (const name of closeMatches(food, nameKeys, 15, 0.45)) {
@@ -237,11 +273,23 @@
         const sugarF = found(SUGAR_MODS), oilF = found(OIL_MODS);
         let clean = chunk;
         for (const [re] of [...SUGAR_MODS, ...OIL_MODS]) clean = clean.replace(re, " ");
+        const bowl = /\bbowls?\b/.test(clean);
+        let eggs = null;
+        const em = /omel|omlet|amlet/.test(clean) ? clean.match(EGG_COUNT) : null;
+        if (em) {
+          eggs = /^\d+$/.test(em[1]) ? parseFloat(em[1]) : NUMBER_WORDS[em[1]];
+          clean = clean.replace(em[0], em[0].includes("white") ? " egg white " : " ");
+        }
         let [qty, size, unit, food] = parseItem(clean);
         const counted = qty !== null; qty = qty || 1;
         if (!food) continue;
         let item = { text: chunk, qty };
-        const rid = matchMine(food, mine);
+        let rid = matchMine(food, mine), note = "";
+        if (rid && unit !== null && unit !== "g" && unit !== (UNIT_WORDS[mine[rid].makes_unit] || mine[rid].makes_unit)) {
+          // "2 pieces tandoori chicken" but the saved recipe is counted per katori: don't guess the piece size.
+          note = ` (your recipe is counted per ${mine[rid].makes_unit}, so this is the standard dish)`;
+          rid = null;
+        }
         if (rid) {
           const r = mine[rid];
           const [per, mult, desc] = unit === "g" && r.per_100g ? [r.per_100g, qty / 100, `g ${r.name} (my recipe)`]
@@ -263,7 +311,7 @@
           if (!DATA.dishes[last]) { items.push({ ...item, status: "missing", name: last.replace(/_/g, " ") }); continue; }
           food = last.replace(/_/g, " ");
         }
-        let [hit, score] = match(food);
+        let [hit, score] = matchLoose(food);
         const prev = items.length ? items[items.length - 1] : null;
         const describesPrev = food.split(/\s+/).every(w => DESCRIBERS.has(w));
         if ((!hit || describesPrev) && prev && prev.status === "ok") {
@@ -287,8 +335,8 @@
         } else if (kind === "book") {
           const b = DATA.book[key];
           let [g, unitName] = (BOOK_SERVING_G.find(([re]) => re.test(b.dish)) || [null, null, null]).slice(1);
-          if (unit === "katori" || unit === "plate" || g) {
-            g = { katori: 150, plate: 200 }[unit] || g;
+          if (unit in UNIT_G || g) {
+            g = unit === "katori" ? KATORI_G[size || "medium"] : (UNIT_G[unit] || g);
             unitName = unit || unitName;
             row = {}; for (const [k, v] of Object.entries(b.per100)) row[k] = v * g / 100;
           } else {
@@ -322,6 +370,19 @@
             const per = qty / d.serving_g; const r2 = {};
             for (const k of [...NUTRIENT_KEYS, "added_fat_g"]) if (d.n[k] != null) r2[k] = d.n[k] * per;
             row = r2; desc = `${fmtG(qty)} g ${d.dish}`; qty = 1; sizes = [];
+          } else if (unit in UNIT_G && d.serving in SERVING_NOMINAL_G && !(unit === "plate" && plateOf[key])) {
+            // "1 katori lemon rice", "1 bowl masala oats": the container the user named, not the dish's default.
+            const bowlHit = BOWL_G.find(([re]) => re.test(`${d.dish} ${d.category}`));
+            const bowlG = bowl && bowlHit && size === null ? bowlHit[1] : null;
+            const target = bowlG || (unit === "katori" ? KATORI_G[size || "medium"] : UNIT_G[unit]), r2 = {};
+            const base = DATA.portions[`${key}:medium`] ? DATA.portions[`${key}:medium`].n : d.n;
+            for (const k of [...NUTRIENT_KEYS, "added_fat_g"]) if (base[k] != null) r2[k] = base[k] * target / SERVING_NOMINAL_G[d.serving];
+            row = r2; sizes = [];
+            desc = `${bowlG ? "bowl" : unit === "katori" && (size === "small" || size === "large") ? size + " katori" : unit} ${d.dish}`;
+          }
+          if (eggs && eggsIn(d.dish)) {
+            qty = eggs / eggsIn(d.dish);
+            desc = `${fmtG(eggs)}-egg ${d.dish.split("(")[0].trim()}`;
           }
           if (unit === "piece" && (d.serving === "katori" || d.serving === "small_katori") && d.category === "curry") {
             const frac = PIECE_IN_GRAVY_G / d.serving_g;
@@ -347,6 +408,7 @@
           nutrients.fat_g = Math.max(0, (nutrients.fat_g || 0) - cut);
           desc += oilF > 0.1 ? " (less oil)" : " (almost no oil)";
         }
+        desc += note;
         for (const k of Object.keys(nutrients)) nutrients[k] = round2(nutrients[k]);
         item.qty = Math.round(qty * 1000) / 1000;
         items.push({ ...item, status: "ok", kind, id: key, desc, confirm: score < 0.85, matched_from: food, sizes,
