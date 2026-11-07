@@ -120,6 +120,8 @@
   const BARE_GRAMS_FROM = 50;
   const CONTAINER_UNITS = ["glass", "cup", "katori", "small katori", "tsp", "tbsp", "portion"];
   // Words that can be dropped when nothing matches: "karela sabzi" -> "karela", "veg uttapam" -> "uttapam".
+  const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const STAPLES = new Set(["roti", "chapati", "phulka", "paratha", "rice", "chawal", "naan", "puri", "poori", "bread", "khichdi"]);
   const OPTIONAL_WORDS = new Set(["sabzi", "sabji", "subzi", "bhaji", "vegetable", "veg", "plain", "toast", "homemade", "simple", "dry", "raw"]);
   // "omelette of 3 eggs", "3 egg omelette": count eggs, not omelettes.
   const EGG_COUNT = /\b(?:of |with )?(\d+|one|two|three|four|five|six|ek|do|teen|char|chaar)\s+(?:egg whites?|eggs?|whites?|ande|anda)\b/;
@@ -278,6 +280,25 @@
       const core = same.split(/\s+/).filter(w => w && !OPTIONAL_WORDS.has(w)).join(" ");
       return core && core !== same ? match(core) : [null, 0];
     }
+    // "2 momos" + "chicken" -> "2 chicken momos" (reads naturally and comes back that way in "Eat this again").
+    function withWord(chunk, food, word) {
+      const re = new RegExp(`\\b${escapeRe(food)}\\b`);
+      return re.test(chunk) ? chunk.replace(re, `${word} ${food}`) : `${chunk} ${word}`;
+    }
+    // "roti dal" -> ["roti", "dal"] when the whole is no known name but both halves are.
+    // A sabzi only splits off a staple: "roti sabzi" is two foods, "bhindi sabzi" is one.
+    function splitPair(food) {
+      const w = food.split(/\s+/).filter(Boolean);
+      if (w.length < 2 || match(food)[0]) return null;
+      const optional = x => x.split(" ").every(t => OPTIONAL_WORDS.has(t));
+      for (let i = 1; i < w.length; i++) {
+        const a = w.slice(0, i).join(" "), b = w.slice(i).join(" ");
+        if (!names.has(a) || !names.has(b) || optional(a)) continue;
+        if (optional(b) && !STAPLES.has(a)) continue;
+        return [a, b];
+      }
+      return null;
+    }
     // "dry oats" -> the oats row of the ingredient table, only when the ingredient is the whole food.
     function rawIngredient(food) {
       const rest = food.replace(RAW_WORDS, " ").split(/\s+/).filter(Boolean).join(" ");
@@ -312,7 +333,9 @@
 
     function analyze(text, mine = {}) {
       const items = [];
-      for (let chunk of splitItems(text)) {
+      const queue = splitItems(text);
+      while (queue.length) {
+        let chunk = queue.shift();
         const found = mods => { const m = mods.find(([re]) => { re.lastIndex = 0; return re.test(chunk); }); return m ? m[1] : null; };
         const sugarF = found(SUGAR_MODS), oilF = found(OIL_MODS);
         let clean = chunk;
@@ -329,6 +352,13 @@
         const ml = unit === "ml";  // liquids by volume: counted like grams (about 1 g per ml), shown as ml
         if (ml) unit = "g";
         if (!food) continue;
+        const pair = matchMine(food, mine) ? null : splitPair(food);
+        const tail = pair ? new RegExp(`\\s+${escapeRe(pair[1])}\\s*$`) : null;
+        if (pair && tail.test(chunk)) {
+          // "2 roti dal" is two foods: "2 roti" and "dal".
+          queue.unshift(chunk.replace(tail, ""), pair[1]);
+          continue;
+        }
         let item = { text: chunk, qty };
         RAW_WORDS.lastIndex = 0;
         const raw = unit === "g" && (RAW_WORDS.test(food) || DRY_BY_DEFAULT.has(food)) ? rawIngredient(food) : null;
@@ -368,7 +398,7 @@
           const picked = food.split(/\s+/).filter(w => w in choices).map(w => choices[w]);
           if (!picked.length) {
             items.push({ ...item, status: "ask", question,
-              choices: Object.keys(choices).map(w => ({ label: titleCase(w), text: `${chunk} ${w}` })) });
+              choices: Object.keys(choices).map(w => ({ label: titleCase(w), text: withWord(chunk, food, w) })) });
             continue;
           }
           const last = picked[picked.length - 1];
@@ -487,7 +517,9 @@
         if (sugarF !== null && sweetDrink) {
           const cut = ADDED_SUGAR_G * (1 - sugarF) * qty;
           for (const [k, v] of [["kcal", 4 * cut], ["carb_g", cut], ["sugar_g", cut]]) if (k in nutrients) nutrients[k] = Math.max(0, nutrients[k] - v);
-          desc += sugarF === 0 ? " (no sugar)" : " (less sugar)";
+          const word = sugarF === 0 ? "no sugar" : "less sugar";
+          // "Masala chai with milk and sugar" -> "... with milk, no sugar", not "... and sugar (no sugar)"
+          desc = desc.includes(" and sugar") ? desc.replace(" and sugar", `, ${word}`) : `${desc} (${word})`;
         }
         if (oilF !== null && row.added_fat_g > 0) {
           const cut = row.added_fat_g * (1 - oilF) * qty;
@@ -665,6 +697,9 @@
     const DIET_ALLOWS = { veg: ["veg"], egg: ["veg", "egg"], nonveg: ["veg", "egg", "nonveg"] };
     const CARB_COUNTS = { chapati: [1, 2, 3], jowar_bhakri: [1, 2], bajra_roti: [1, 2], ragi_roti: [1, 2], steamed_rice: [0.5, 1], idli: [2, 3] };
     const MAIN_SCALES = [1, 1.5];
+    // A late dinner stays light: no more than one roti or half a katori of rice, and no more than its usual share.
+    const LATE_DINNER_HOUR = 20;
+    const LATE_CARB_MAX = { chapati: 1, jowar_bhakri: 1, bajra_roti: 1, ragi_roti: 1, steamed_rice: 0.5 };
     const NO_CARB = new Set(["poha", "upma", "besan_chilla", "moong_dal_chilla", "paneer_tikka", "chicken_tikka", "tandoori_chicken", "tawa_fish_fry"]);
     const BREAKFAST_MAINS = new Set(["egg_bhurji", "masala_omelette", "basic:egg", "paneer_bhurji", "besan_chilla", "moong_dal_chilla",
       "moong_sprouts_usal", "sambar", "poha", "upma"]);
@@ -742,7 +777,9 @@
       else [meal, remaining] = nextMeal(eatenMeals, hour);
       if (!remaining.includes(meal)) remaining.push(meal);
       const share = MEAL_SHARE[meal] / remaining.reduce((s, m) => s + MEAL_SHARE[m], 0);
-      const budget = leftKcal > 0 ? Math.min(leftKcal * share, t.kcal * MEAL_CAP[meal]) : 0;
+      const late = meal === "Dinner" && hour >= LATE_DINNER_HOUR;
+      let budget = leftKcal > 0 ? Math.min(leftKcal * share, t.kcal * MEAL_CAP[meal]) : 0;
+      if (late) budget = Math.min(budget, t.kcal * MEAL_SHARE.Dinner);
       const result = { meal, targets: t, eaten_kcal: Math.round(eaten.kcal), left_kcal: Math.round(leftKcal),
         protein_gap_g: Math.round(proteinGap), budget_kcal: Math.round(budget), options: [], tips: [] };
       if (budget < 120) {
@@ -762,6 +799,7 @@
         if (carb && (NO_CARB.has(main[0]) || (ONLY_WITH[carb[0]] && !ONLY_WITH[carb[0]].has(main[0]))
           || (ONLY_WITH[main[0]] && !ONLY_WITH[main[0]].has(carb[0])))) continue;
         if (!carb && ONLY_WITH[main[0]]) continue;
+        if (late && carb && carb[4] > (LATE_CARB_MAX[carb[0]] ?? 1)) continue;
         const parts = [main, carb, side].filter(Boolean);
         const tot = Object.fromEntries(MACROS.map(k => [k, parts.reduce((s, c) => s + (c[3][k] || 0) * c[4], 0)]));
         if (tot.kcal > budget * 1.1 || tot.kcal < budget * 0.55) continue;
@@ -771,7 +809,7 @@
         const repeat = parts.filter(c => eatenIds.has(c[0])).length;
         const own = parts.some(c => c[0].startsWith("mine:"));
         const paired = !!carb && PAIRS.has(`${main[0]}|${carb[0]}`);
-        scored.push([2 * fit + 1.5 * proteinScore + 2 * fullness - repeat + (own ? 0.6 : 0) + (paired ? 0.4 : 0), parts, tot]);
+        scored.push([2 * fit + 1.5 * proteinScore + 2 * fullness - repeat + (own ? 1.5 : 0) + (paired ? 0.4 : 0), parts, tot]);
       }
       scored.sort((x, y) => y[0] - x[0]);
       const usedMains = new Set(), sideUses = {};
@@ -791,7 +829,7 @@
         if (result.options.length === n) break;
       }
       if (proteinGap > 30) result.tips.push(`You're ${Math.round(proteinGap)} g short on protein today, so the options above lean on dal, paneer, eggs or chicken. Protein keeps you full for longer.`);
-      if (meal === "Dinner" && hour >= 21) result.tips.push("It's late: a lighter dinner (no rice, one roti) sits better and helps sleep.");
+      if (late) result.tips.push("It's late, so these ideas keep dinner light (one roti or half a katori of rice): it sits better and helps sleep.");
       result.tips.push("Eat the salad or sabzi first and the roti/rice last: it blunts the sugar spike.");
       return result;
     }

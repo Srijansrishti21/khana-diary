@@ -19,7 +19,7 @@
 :root {
   --bg: #f4f5f1; --surface: #ffffff; --line: #dcdfd6; --fg: #1c211e; --muted: #5d655f;
   --accent: #b7791f; --accent-soft: #f6ead2; --ink: #23415a;
-  --good: #2f7d4f; --good-soft: #e1f0e6; --warn: #a8660b; --warn-soft: #f8ecd6; --bad: #b23a2e; --bad-soft: #f7e1de;
+  --good: #2f7d4f; --good-soft: #e1f0e6; --warn: #a8660b; --warn-soft: #f8ecd6; --warn-text: #84500a; --bad: #b23a2e; --bad-soft: #f7e1de;
   --font-display: "Rozha One", Georgia, serif;
   --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-data: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -29,7 +29,7 @@
   :root {
     --bg: #141714; --surface: #1c201c; --line: #313730; --fg: #e8ebe5; --muted: #9aa39b;
     --accent: #e3a646; --accent-soft: #3a2f1c; --ink: #8fb4d6;
-    --good: #6cc48f; --good-soft: #1c3326; --warn: #e2a64e; --warn-soft: #3a2d17; --bad: #ec8579; --bad-soft: #3d2320;
+    --good: #6cc48f; --good-soft: #1c3326; --warn: #e2a64e; --warn-soft: #3a2d17; --warn-text: #e2a64e; --bad: #ec8579; --bad-soft: #3d2320;
     color-scheme: dark;
   }
 }
@@ -60,8 +60,9 @@ small { font-size: 12.5px; }
 details.micros summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 .micro-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 13px; margin-top: 8px; }
 
-.meals { display: flex; gap: 6px; flex-wrap: wrap; }
-.chip { font: inherit; font-size: 13px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line);
+.meals { display: flex; gap: 6px; }
+.meals > .chip { flex: 1 1 0; min-width: 0; text-align: center; padding-inline: 4px; }
+.chip { font: inherit; font-size: 13.5px; padding: 8px 14px; min-height: 40px; border-radius: 999px; border: 1px solid var(--line);
   background: var(--surface); color: var(--fg); cursor: pointer; }
 .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .chip.soft { background: var(--accent-soft); border-color: transparent; }
@@ -71,7 +72,7 @@ textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 
 .iconbtn { width: 48px; flex: none; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg);
   font-size: 20px; cursor: pointer; }
 .iconbtn.live { background: var(--bad-soft); border-color: var(--bad); }
-.btn { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 10px; border: 0; background: var(--fg); color: var(--bg); cursor: pointer; }
+.btn { font: inherit; font-weight: 600; padding: 12px 18px; min-height: 44px; border-radius: 10px; border: 0; background: var(--fg); color: var(--bg); cursor: pointer; }
 .btn:disabled { opacity: .45; cursor: default; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .examples { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -81,8 +82,8 @@ textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 
 .item-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .item-head b { font-weight: 600; }
 .item-kcal { font-family: var(--font-data); white-space: nowrap; }
-.tag { font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
-.tag.warn { color: var(--warn); background: var(--warn-soft); }
+.tag { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.tag.warn { color: var(--warn-text); background: var(--warn-soft); }
 .tag.bad { color: var(--bad); background: var(--bad-soft); }
 .q { font-size: 13.5px; }
 .preview-total { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -91,14 +92,16 @@ textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 
 .entry:first-of-type { border-top: 0; }
 .entry-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .entry ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
-.del { font: inherit; font-size: 12px; background: none; border: 0; color: var(--muted); cursor: pointer; text-decoration: underline; }
+.del { font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted); cursor: pointer; text-decoration: underline;
+  padding: 12px 4px; margin: -12px 0; }
 .settings { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 13px; }
-.settings input { width: 80px; font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+.settings input { width: 80px; font: inherit; font-size: 16px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
 .empty { color: var(--muted); font-size: 14px; }
 .recipe-form { display: grid; gap: 10px; }
 .recipe-form label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
-.recipe-form input, .recipe-form select { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line);
-  background: var(--bg); color: var(--fg); min-width: 0; }
+/* 16px: iPhone Safari zooms the page into any smaller field when it gets focus. */
+.recipe-form input, .recipe-form select { font: inherit; font-size: 16px; padding: 10px 12px; min-height: 44px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--fg); min-width: 0; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .breakdown { width: 100%; border-collapse: collapse; font-size: 13px; }
 .breakdown td { padding: 4px 0; border-bottom: 1px solid var(--line); }
@@ -113,31 +116,41 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: space-around; align-items: center;
   background: var(--surface); border-top: 1px solid var(--line);
   padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-.tabbar button { font: inherit; font-size: 11px; background: none; border: 0; color: var(--muted); display: grid; justify-items: center;
+.tabbar button { font: inherit; font-size: 12px; background: none; border: 0; color: var(--muted); display: grid; justify-items: center;
   gap: 2px; padding: 4px 8px; min-width: 56px; cursor: pointer; }
 .tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .tabbar button[aria-current="page"] { color: var(--fg); font-weight: 600; }
-.tabbar .tab-add { width: 54px; height: 54px; min-width: 0; border-radius: 50%; background: var(--accent); color: #fff; margin-top: -26px;
+.tabbar .tab-add .fab { width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: #fff; margin-top: -30px;
   box-shadow: 0 4px 14px rgba(0,0,0,.18); display: grid; place-items: center; }
 .tabbar .tab-add svg { width: 28px; height: 28px; stroke-width: 2.4; }
-.tabbar .tab-add[aria-current="page"] { color: #fff; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 11;
   background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; max-width: calc(100% - 32px); }
 .welcome h2 { font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1.15; margin: 0; }
-.eyebrow { margin: 0; font-family: var(--font-data); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.eyebrow { margin: 0; font-family: var(--font-data); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); }
 .steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 .steps li span { display: block; font-size: 13px; }
 .big-btn { padding: 14px 18px; font-size: 16px; }
 .onboard-note { background: var(--accent-soft); border-color: transparent; gap: 4px; }
 @media (prefers-reduced-motion: no-preference) { .screen.active { animation: rise .18s ease-out; } }
 #screen-add .preview-total { position: sticky; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 2;
-  background: var(--bg); margin: 0 -16px -16px; padding: 12px 16px; border-top: 1px solid var(--line); border-radius: 0 0 14px 14px; }
+  background: var(--bg); margin: 0 -16px -16px; padding: 12px 16px; border-top: 1px solid var(--line); border-radius: 0 0 14px 14px;
+  box-shadow: 0 40px 0 var(--bg); }
 .logcard { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .section-title { font-size: 17px; }
 .fakeinput { font: inherit; font-size: 16px; text-align: left; padding: 14px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--bg); color: var(--fg); cursor: pointer; display: grid; gap: 2px; }
 .fakeinput span { font-size: 13px; color: var(--muted); }
-.quick { flex: 1 1 0; min-width: 0; text-align: center; padding: 8px 2px; white-space: nowrap; font-size: 12.5px; }
+.quick { flex: 1 1 0; min-width: 0; text-align: center; padding: 8px 2px; white-space: nowrap; font-size: 13px; min-height: 44px; }
+/* Size: one short S · M · L row; the visual hint for the chosen size sits under it. */
+.sizes { display: flex; gap: 6px; }
+.sizes .chip { flex: 1 1 0; text-align: center; }
+.size-hint { font-size: 13px; color: var(--muted); }
+.skip-note { font-size: 13px; color: var(--bad); }
+.toast { display: flex; align-items: center; gap: 14px; }
+.toast button { font: inherit; font-weight: 600; background: none; border: 0; color: var(--accent); padding: 6px 4px; cursor: pointer; }
+.macros small { font-size: 12px; color: var(--muted); font-family: var(--font-body); font-weight: 400; }
+.recipe-actions { display: flex; gap: 14px; align-items: center; white-space: nowrap; }
+.backup-nudge { background: var(--warn-soft); border-color: transparent; }
 @keyframes rise { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 </style>
 </head>
@@ -178,7 +191,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
     <div class="macros">
       <div><b id="m-carb">0</b><span>carbs g</span></div>
       <div><b id="m-fat">0</b><span>fat g</span></div>
-      <div><b id="m-fibre">0</b><span>fibre g</span></div>
+      <div><b><span id="m-fibre">0</span><small> / 30</small></b><span>fibre g</span></div>
       <div><b id="m-sugar">0</b><span>sugars g</span></div>
     </div>
     <details class="micros"><summary>Micronutrients today</summary><div class="micro-grid" id="micro-grid"></div></details>
@@ -187,7 +200,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
     
     <section class="card logcard" aria-label="Log food">
       <div class="item-head"><b class="section-title">Log food</b><small class="muted" id="entry-count"></small></div>
-      <button type="button" class="fakeinput" data-go="add">What did you eat? <span>Type or speak…</span></button>
+      <button type="button" class="fakeinput" data-go="add">What did you eat? <span id="fake-hint">Type it in your own words</span></button>
       <div class="meals" id="quick-meals" role="group" aria-label="Log a meal"></div>
       <div id="recent-wrap" hidden><small class="muted">Eat this again</small><div class="examples" id="recent"></div></div>
       <div id="log"><p class="empty">Nothing logged yet. Tap ＋ to add your first meal.</p></div>
@@ -202,7 +215,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
     <section class="card" aria-label="Log a meal">
     <div class="meals" id="meals" role="group" aria-label="Meal"></div>
     <div class="inputrow">
-      <textarea id="meal-text" rows="2" placeholder="What did you eat? e.g. 2 aloo paratha with amul butter and chai"></textarea>
+      <textarea id="meal-text" rows="2" aria-label="What did you eat?" placeholder="e.g. 2 roti, dal and chai"></textarea>
       <button class="iconbtn" id="mic" type="button" aria-label="Speak your meal" title="Speak (Hindi or English)">🎤</button>
     </div>
     <div class="examples" id="examples"></div>
@@ -212,7 +225,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 
   <div class="screen" id="screen-ideas">
     <section class="card" aria-label="What to eat next" id="suggest-card">
-    <div class="item-head"><b id="sg-title">What to eat next</b><small class="muted" id="sg-budget"></small></div>
+    <div style="display:grid;gap:2px"><b id="sg-title">What to eat next</b><small class="muted" id="sg-budget"></small></div>
     <div class="meals" id="sg-meals" role="group" aria-label="Suggest for"></div>
     <div id="sg-options"><p class="empty">Loading ideas…</p></div>
     <div id="sg-tips"></div>
@@ -221,7 +234,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 
   <div class="screen" id="screen-recipes">
     <section class="card" aria-label="My recipes">
-    <div class="item-head"><b>My recipes</b><small class="muted">your own home cooking, logged once</small></div>
+    <p class="muted" style="margin:0">Your own home cooking. Add a dish once, then log it by name.</p>
     <div id="recipes"></div>
     <details id="recipe-new">
       <summary class="chip soft" style="display:inline-block;list-style:none">+ Add a recipe</summary>
@@ -239,6 +252,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
         <input type="hidden" id="r-id">
         <div id="r-preview" aria-live="polite"></div>
         <div><button class="btn" type="submit" id="r-save">Save recipe</button> <small class="muted" id="r-status"></small></div>
+        <div id="r-delete-wrap" hidden><button class="del" type="button" id="r-delete">Delete this recipe</button></div>
       </form>
     </details>
   </section>
@@ -251,7 +265,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
     </section>
     <section class="card" aria-label="My profile and goal">
     <details id="profile-box" open>
-      <summary class="item-head" style="cursor:pointer;list-style:none"><b>My goal</b><small class="muted" id="goal-line">Set your profile</small></summary>
+      <summary style="cursor:pointer;list-style:none"><b id="goal-line">Set your profile</b></summary>
       <form class="recipe-form" id="profile-form" style="margin-top:12px">
         <div class="row2">
           <label for="p-sex">Sex<select id="p-sex"><option value="female">Female</option><option value="male">Male</option></select></label>
@@ -261,23 +275,26 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
           <label for="p-height">Height (cm)<input id="p-height" type="number" min="120" max="220"></label>
           <label for="p-weight">Weight (kg)<input id="p-weight" type="number" min="30" max="250" step="0.1"></label>
         </div>
-        <div class="row2">
-          <label for="p-activity">Daily activity<select id="p-activity">
-            <option value="sedentary">Desk job, little walking</option><option value="light" selected>Some walking / light exercise</option>
-            <option value="moderate">Exercise 3-5 days a week</option><option value="active">Hard exercise most days</option></select></label>
-          <label for="p-goal">Goal<select id="p-goal"><option value="lose">Lose weight (~0.5 kg/week)</option>
-            <option value="lose_slow">Lose slowly (~0.25 kg/week)</option><option value="maintain">Stay at this weight</option></select></label>
-        </div>
+        <label for="p-activity">Daily activity<select id="p-activity">
+          <option value="sedentary">Desk job, little walking</option><option value="light" selected>Some walking / light exercise</option>
+          <option value="moderate">Exercise 3-5 days a week</option><option value="active">Hard exercise most days</option></select></label>
+        <label for="p-goal">Goal<select id="p-goal"><option value="lose">Lose weight (~0.5 kg/week)</option>
+          <option value="lose_slow">Lose slowly (~0.25 kg/week)</option><option value="maintain">Stay at this weight</option></select></label>
         <div class="row2">
           <label for="p-diet">I eat<select id="p-diet"><option value="veg">Vegetarian</option><option value="egg">Veg + eggs</option>
             <option value="nonveg" selected>Non-veg</option></select></label>
-          <label for="p-override">Own calorie goal (optional)<input id="p-override" type="number" min="1000" max="5000" step="50" placeholder="auto"></label>
+          <label for="p-override">Calorie goal<input id="p-override" type="number" min="1000" max="5000" step="50" placeholder="auto"></label>
         </div>
         <div><button class="btn" type="submit">Save</button> <small class="muted" id="p-status"></small></div>
       </form>
     </details>
-    <small class="muted" id="meta"></small>
-    <div class="examples" style="margin-top:8px">
+  </section>
+  <section class="card" aria-label="Your data">
+    <b>Your data</b>
+    <small class="muted">Meals, recipes and your goal are stored only on this phone. Clearing Safari data or changing phones
+      loses them, so save a backup file now and then.</small>
+    <small id="backup-last"></small>
+    <div class="examples">
       <button type="button" class="chip" id="backup-out">Save a backup file</button>
       <label class="chip" for="backup-in" style="cursor:pointer">Restore from backup</label>
       <input type="file" id="backup-in" accept="application/json,.json" hidden>
@@ -287,13 +304,14 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
       <button type="button" class="chip" id="misses-out">Send what it didn't understand</button>
     </div>
     <small class="muted" id="misses-status">Only the food you typed that it couldn't read. No meals, weight or recipes.</small>
+    <small class="muted" id="meta"></small>
   </section>
   </div>
 </div>
 
 <nav class="tabbar" id="tabbar" aria-label="Sections">
   <button type="button" data-go="home" aria-label="Today"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg><span>Today</span></button>
-  <button type="button" data-go="add" class="tab-add" aria-label="Log food"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button type="button" data-go="add" class="tab-add" aria-label="Log food"><span class="fab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span>Log</span></button>
   <button type="button" data-go="ideas" aria-label="Ideas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg><span>Ideas</span></button>
   <button type="button" data-go="recipes" aria-label="My recipes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0zM8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg><span>Recipes</span></button>
   <button type="button" data-go="me" aria-label="Me"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span>Me</span></button>
@@ -395,6 +413,7 @@ function exportBackup() {
   const data = { app: "khana-diary", at: new Date().toISOString(), daylog: Local.get("daylog", {}),
     recipes: Local.get("recipes", {}), profile: Local.get("profile", {}), queries: Local.get("queries", []) };
   saveFile(data, `counted-calories-${today}.json`);
+  Local.set("lastBackup", new Date().toISOString());
 }
 function saveFile(data, name) {
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
@@ -469,18 +488,23 @@ function renderPreview() {
   if (!items.length) { $("#preview").innerHTML = ""; return; }
   const ok = items.filter(i => i.status === "ok");
   const tot = sum(ok.map(i => i.nutrients));
-  const pending = items.length - ok.length;
+  const skipped = items.filter(i => i.status !== "ok").map(i => `“${i.name || i.text}”`);
+  // Never drop food quietly: say what won't be counted before the user adds the rest.
+  const note = skipped.length && ok.length ? `<div class="skip-note">${esc(skipped.join(", "))} won't be counted. Pick an option above, or add the rest without ${skipped.length === 1 ? "it" : "them"}.</div>` : "";
   $("#preview").innerHTML = `<div class="card" style="background:var(--bg)">
     ${items.map((it, idx) => itemHTML(it, idx)).join("")}
     <div class="preview-total">
-      <div><b class="num">${fmt(tot.kcal)} kcal</b> <small class="muted">· ${fmt(tot.protein_g, 1)} g protein · ${fmt(tot.carb_g)} g carbs · ${fmt(tot.fat_g)} g fat</small></div>
-      <button class="btn" id="add" type="button" ${ok.length ? "" : "disabled"}>Add to ${esc(state.meal.toLowerCase())}${pending ? ` (${ok.length} of ${items.length})` : ""}</button>
+      ${note}
+      <div><b class="num">${fmt(tot.kcal)} kcal</b> <small class="muted">· ${g(tot.protein_g)} g protein · ${g(tot.carb_g)} g carbs · ${g(tot.fat_g)} g fat</small></div>
+      <button class="btn" id="add" type="button" ${ok.length ? "" : "disabled"}>Add to ${esc(state.meal.toLowerCase())}${skipped.length && ok.length ? ` without ${skipped.length === 1 ? "it" : "them"}` : ""}</button>
     </div></div>`;
   $("#add").onclick = addToDay;
   $("#preview").querySelectorAll("[data-replace]").forEach(b => b.onclick = () => replaceChunk(items[b.dataset.idx].text, b.dataset.replace));
 }
 
 // "1 × 1 plate pav bhaji" reads badly: drop the multiplier when the label already says "1 plate".
+// Grams: one decimal under 10 g, whole numbers above, the same everywhere.
+const g = v => fmt(v, v != null && v < 10 ? 1 : 0);
 const qtyLabel = (qty, desc) => (qty === 1 && /^1 /.test(desc)) ? esc(desc) : `${fmt(qty, qty % 1 ? 2 : 0)} × ${esc(desc)}`;
 
 function itemHTML(it, idx) {
@@ -499,11 +523,19 @@ function itemHTML(it, idx) {
   const n = it.nutrients;
   return `<div class="item">
     <div class="item-head"><b>${qtyLabel(it.qty, it.desc)}</b><span class="item-kcal">${fmt(n.kcal)} kcal</span></div>
-    <small class="muted">${n.protein_g == null ? "macros not published by the brand" : `${fmt(n.protein_g, 1)} g protein · ${fmt(n.carb_g)} g carbs · ${fmt(n.fat_g, 1)} g fat`}
+    <small class="muted">${n.protein_g == null ? "macros not published by the brand" : `${g(n.protein_g)} g protein · ${g(n.carb_g)} g carbs · ${g(n.fat_g)} g fat`}
       ${it.confirm ? ` <span class="tag warn">guessed from “${esc(it.matched_from)}”</span>` : ""}</small>
-    ${it.sizes && it.sizes.length ? `${it.ask ? `<div class="q muted">${esc(it.ask)}</div>` : ""}<div class="examples">${it.sizes.map(s =>
-      `<button type="button" class="chip" aria-pressed="${s.active}" data-idx="${idx}" data-replace="${esc(s.text)}">${esc(s.label)}</button>`).join("")}</div>` : ""}
+    ${it.sizes && it.sizes.length ? sizesHTML(it, idx) : ""}
   </div>`;
+}
+
+// "Medium: thin homemade, palm-width" -> a short "Medium" button, with the hint shown for the chosen size only.
+function sizesHTML(it, idx) {
+  const parts = it.sizes.map(s => { const [short, ...hint] = s.label.split(":"); return { ...s, short, hint: hint.join(":").trim() }; });
+  const active = parts.find(s => s.active);
+  return `${it.ask ? `<div class="q muted">${esc(it.ask)}</div>` : ""}<div class="sizes">${parts.map(s =>
+    `<button type="button" class="chip" aria-pressed="${s.active}" aria-label="${esc(s.label)}" data-idx="${idx}" data-replace="${esc(s.text)}">${esc(s.short)}</button>`).join("")}</div>
+    ${active && active.hint ? `<div class="size-hint">${esc(active.hint)}</div>` : ""}`;
 }
 
 function sum(list) {
@@ -558,9 +590,11 @@ function renderDay() {
         <ul>${e.items.map(i => `<li>${qtyLabel(i.qty, i.desc)}: ${fmt(i.nutrients.kcal)} kcal</li>`).join("")}</ul></div>`;
     }).join("");
   }).join("");
-  $("#log").querySelectorAll(".del").forEach(b => b.onclick = async () => {
-    await api(`/api/day/${b.dataset.id}`, { method: "DELETE" });
-    state.entries = state.entries.filter(e => e.id !== b.dataset.id); renderDay(); loadSuggestions();
+  $("#log").querySelectorAll(".del").forEach(b => b.onclick = () => {
+    const i = state.entries.findIndex(e => e.id === b.dataset.id), entry = state.entries[i];
+    state.entries.splice(i, 1); renderDay();
+    later(() => api(`/api/day/${entry.id}`, { method: "DELETE" }).then(loadSuggestions), `Removed ${entry.meal.toLowerCase()}`,
+      () => { state.entries.splice(i, 0, entry); renderDay(); });
   });
 }
 
@@ -600,11 +634,12 @@ async function loadSuggestions() {
   const r = await api(`/api/suggest?date=${today}&hour=${new Date().getHours()}${sgMeal ? `&meal=${sgMeal}` : ""}`);
   // sgMeal stays null unless the user taps a meal, so the app keeps picking the right next meal itself
   $("#sg-title").textContent = `Ideas for ${r.meal.toLowerCase()}`;
-  $("#sg-budget").textContent = r.left_kcal > 0 ? `${r.budget_kcal} kcal for this meal · ${r.left_kcal} left today` : "Goal reached for today";
+  $("#sg-budget").textContent = r.left_kcal > 0 ? `${r.budget_kcal} kcal for this meal · ${r.left_kcal} left today` +
+    (r.protein_gap_g > 5 ? ` · ${r.protein_gap_g} g protein still to go` : "") : "Goal reached for today";
   $("#sg-meals").innerHTML = MEALS.map(m => `<button type="button" class="chip" aria-pressed="${m === r.meal}" data-m="${m}">${m}</button>`).join("");
   $("#sg-options").innerHTML = r.options.length ? r.options.map((o, i) => `<div class="item">
-      <div class="item-head"><b>${esc(o.text)}</b><span class="item-kcal">${o.kcal} kcal</span></div>
-      <small class="muted">${o.protein_g} g protein · ${o.carb_g} g carbs · ${o.fat_g} g fat — ${esc(o.why)}</small>
+      <div class="item-head"><b>${esc(o.text.replace(" (your recipe)", ""))}</b><span class="item-kcal">${o.kcal} kcal</span></div>
+      <small class="muted">${g(o.protein_g)} g protein · ${g(o.carb_g)} g carbs · ${g(o.fat_g)} g fat${/your own recipe/.test(o.why) ? ` <span class="tag warn">your recipe</span>` : ""}</small>
       <div><button type="button" class="chip soft" data-log="${i}">Log this for ${esc(r.meal.toLowerCase())}</button></div></div>`).join("")
     : `<p class="empty">No full meal fits what's left today.</p>`;
   $("#sg-tips").innerHTML = r.tips.map(t => `<p class="q muted" style="margin:4px 0">${esc(t)}</p>`).join("");
@@ -626,6 +661,7 @@ $("#sg-meals").onclick = e => { const b = e.target.closest("button"); if (b) { s
 // Voice: the browser's own speech recognition (Chrome/Edge/Safari), Indian English + Hinglish.
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!SR) { $("#mic").hidden = true; } else {
+  $("#fake-hint").textContent = "Type or speak, in your own words";
   let rec = null;
   $("#mic").onclick = () => {
     if (rec) { rec.stop(); return; }
@@ -670,10 +706,22 @@ function go(name) {
   if (name === "add") setTimeout(() => $("#meal-text").focus(), 60);
   if (name === "ideas") loadSuggestions();
 }
-function toast(msg) {
-  const t = $("#toast"); t.textContent = msg; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 2600);
+function toast(msg, undo) {
+  const t = $("#toast");
+  t.innerHTML = `<span>${esc(msg)}</span>${undo ? `<button type="button">Undo</button>` : ""}`;
+  t.hidden = false;
+  if (undo) t.querySelector("button").onclick = () => { t.hidden = true; undo(); };
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), undo ? 5000 : 2600);
 }
+// Deletes wait 5 seconds so they can be undone; leaving the app carries them out straight away.
+const waiting = new Map();
+function later(run, msg, undo) {
+  const id = Math.random();
+  const drop = () => { clearTimeout(waiting.get(id)?.timer); waiting.delete(id); };
+  waiting.set(id, { run, timer: setTimeout(() => { drop(); run(); }, 5000) });
+  toast(msg, () => { drop(); undo(); });
+}
+addEventListener("pagehide", () => { waiting.forEach(w => { clearTimeout(w.timer); w.run(); }); waiting.clear(); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (b) go(b.dataset.go); });
 $("#welcome-start").onclick = () => {
   store.set("welcomed", true); onboarding = true; $("#onboard-note").hidden = false; go("me");
@@ -703,7 +751,7 @@ async function previewRecipe() {
   const ps = r.per_serving;
   $("#r-preview").innerHTML = `<div class="card" style="background:var(--bg)">
     <div><b class="num">${fmt(ps.kcal)} kcal</b> <small class="muted">per ${esc(r.makes_unit)}${r.serving_g ? ` (${r.serving_g} g)` : ""} · ${fmt(ps.protein_g, 1)} g protein · ${fmt(ps.carb_g)} g carbs · ${fmt(ps.fat_g, 1)} g fat (${fmt(r.added_fat_g_per_serving, 1)} g from oil/ghee)</small></div>
-    <table class="breakdown">${r.breakdown.map(b => `<tr><td>${esc(b.line)} <small class="muted">→ ${esc(b.matched.split("(")[0])}</small></td><td class="num">${b.grams} g</td><td class="num">${b.kcal} kcal</td></tr>`).join("")}
+    <table class="breakdown">${r.breakdown.map(b => `<tr><td>${esc(b.line)}<br><small class="muted">counted as ${esc(b.matched.split(/[,(]/)[0].trim().toLowerCase())}</small></td><td class="num">${b.grams} g</td><td class="num">${b.kcal} kcal</td></tr>`).join("")}
       <tr><td><b>Whole pot</b></td><td></td><td class="num"><b>${r.total_kcal} kcal</b></td></tr></table>
     ${(r.assumptions || []).length ? `<div class="q muted">Assumed (edit the line to change):</div><div>${r.assumptions.map(a => `<span class="tag warn" style="display:inline-block;margin:2px 4px 2px 0">${esc(a)}</span>`).join("")}</div>` : ""}
     ${r.problems.length ? `<div class="q">Not counted yet:</div><div>${r.problems.map(p => `<span class="tag bad" style="display:inline-block;margin:2px 4px 2px 0">${esc(p)}</span>`).join("")}</div>` : ""}
@@ -716,32 +764,60 @@ $("#recipe-form").addEventListener("submit", async e => {
   const r = await api("/api/recipes", { method: "POST", body: JSON.stringify(rArgs()) });
   if (r.error) { $("#r-status").textContent = ""; previewRecipe(); return; }
   $("#r-status").textContent = `Saved. Type "${r.name}"${r.aliases.length ? ` or "${r.aliases[0]}"` : ""} to log it.`;
-  ["#r-name", "#r-lines", "#r-alias", "#r-cooked", "#r-id"].forEach(id => $(id).value = ""); $("#r-preview").innerHTML = "";
-  $("#r-save").textContent = "Save recipe";
+  clearRecipeForm();
   loadRecipes();
 });
 
+const hiddenRecipes = new Set();  // deleted, waiting for undo
 async function loadRecipes() {
-  const { recipes } = await api("/api/recipes");
+  const recipes = (await api("/api/recipes")).recipes.filter(r => !hiddenRecipes.has(r.id));
   $("#recipes").innerHTML = recipes.length ? recipes.map(r => `<div class="recipe">
-      <div><b>${esc(r.name)}</b><br><small class="muted">${fmt(r.per_serving.kcal)} kcal per ${esc(r.makes_unit)} · ${fmt(r.per_serving.protein_g, 1)} g protein${r.aliases.length ? ` · also “${esc(r.aliases.join("”, “"))}”` : ""}</small></div>
-      <span style="white-space:nowrap"><button class="del" type="button" data-edit="${r.id}">Edit</button>
-        <button class="del" type="button" data-rid="${r.id}">Delete</button></span></div>`).join("")
+      <div><b>${esc(r.name)}</b><br><small class="muted">${fmt(r.per_serving.kcal)} kcal per ${esc(r.makes_unit)} · ${g(r.per_serving.protein_g)} g protein${r.aliases.length ? ` · also “${esc(r.aliases.join("”, “"))}”` : ""}</small></div>
+      <span class="recipe-actions"><button class="chip soft" type="button" data-log="${r.id}">Log 1 ${esc(r.makes_unit)}</button>
+        <button class="del" type="button" data-edit="${r.id}">Edit</button></span></div>`).join("")
     : `<p class="empty">No recipes yet. Add the dishes you cook most at home: they become the most accurate items in your diary.</p>`;
+  $("#recipes").querySelectorAll("[data-log]").forEach(b => b.onclick = () => {
+    const r = recipes.find(x => x.id === b.dataset.log);
+    go("add"); $("#meal-text").value = `1 ${r.makes_unit} ${r.name}`; analyze();
+  });
   $("#recipes").querySelectorAll("[data-edit]").forEach(b => b.onclick = () => {
     const r = recipes.find(x => x.id === b.dataset.edit);
     $("#r-id").value = r.id; $("#r-name").value = r.name; $("#r-lines").value = r.lines;
     $("#r-qty").value = r.makes_qty; $("#r-unit").value = r.makes_unit; $("#r-alias").value = (r.aliases || []).join(", ");
     $("#r-cooked").value = r.cooked_g || "";
-    $("#recipe-new").open = true; $("#r-save").textContent = "Update recipe"; previewRecipe();
+    $("#recipe-new").open = true; $("#r-save").textContent = "Update recipe"; $("#r-delete-wrap").hidden = false; previewRecipe();
     $("#r-name").scrollIntoView({ behavior: "smooth", block: "center" });
   });
-  $("#recipes").querySelectorAll("[data-rid]").forEach(b => b.onclick = async () => {
-    await api(`/api/recipes/${b.dataset.rid}`, { method: "DELETE" }); loadRecipes(); });
+}
+$("#r-delete").onclick = () => {
+  const id = $("#r-id").value, name = $("#r-name").value.trim() || "Recipe";
+  if (!id) return;
+  hiddenRecipes.add(id); clearRecipeForm(); loadRecipes();
+  later(() => api(`/api/recipes/${id}`, { method: "DELETE" }).then(() => { hiddenRecipes.delete(id); loadRecipes(); }),
+    `Deleted ${name}`, () => { hiddenRecipes.delete(id); loadRecipes(); });
+};
+function clearRecipeForm() {
+  ["#r-name", "#r-lines", "#r-alias", "#r-cooked", "#r-id"].forEach(id => $(id).value = ""); $("#r-preview").innerHTML = "";
+  $("#r-save").textContent = "Save recipe"; $("#r-delete-wrap").hidden = true;
 }
 loadRecipes();
 
-$("#backup-out").onclick = exportBackup;
+function showBackupAge() {
+  const last = Local.get("lastBackup", null);
+  const days = last ? Math.floor((Date.now() - new Date(last)) / 864e5) : null;
+  $("#backup-last").textContent = last ? `Last backup: ${days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`}` : "Last backup: never";
+  // Nudge on Today once there is something worth keeping and no backup this week.
+  const worth = Object.keys(Local.get("recipes", {})).length || Object.keys(Local.get("daylog", {})).length >= 3;
+  $("#backup-nudge").hidden = !(worth && (days === null || days >= 7));
+}
+const nudge = Object.assign(document.createElement("section"), { className: "card backup-nudge", id: "backup-nudge", hidden: true,
+  innerHTML: `<b>Save a backup</b><small class="muted">Your diary lives only on this phone. A backup file keeps your recipes and meals safe.</small>
+    <div><button type="button" class="chip" id="backup-nudge-btn">Save a backup file</button></div>` });
+$("#teaser").before(nudge);
+const backupNow = () => { exportBackup(); showBackupAge(); toast("Backup file saved"); };
+$("#backup-nudge-btn").onclick = backupNow;
+showBackupAge();
+$("#backup-out").onclick = backupNow;
 $("#misses-out").onclick = async () => {
   const n = await exportMisses();
   if (n !== null) $("#misses-status").textContent = n ? `${n} entries ready to send.` : "Nothing it didn't understand yet.";
