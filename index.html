@@ -34,6 +34,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-body);
   padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 60px max(16px, env(safe-area-inset-left)); }
@@ -104,16 +105,61 @@ textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 
 .breakdown td.num { text-align: right; white-space: nowrap; padding-left: 8px; }
 .recipe { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); }
 .recipe:first-child { border-top: 0; }
+
+/* App flow: one screen at a time, bottom tab bar, centred + for adding a meal. */
+.screen { display: none; gap: 18px; }
+.screen.active { display: grid; }
+body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: space-around; align-items: center;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+.tabbar button { font: inherit; font-size: 11px; background: none; border: 0; color: var(--muted); display: grid; justify-items: center;
+  gap: 2px; padding: 4px 8px; min-width: 56px; cursor: pointer; }
+.tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabbar button[aria-current="page"] { color: var(--fg); font-weight: 600; }
+.tabbar .tab-add { width: 54px; height: 54px; min-width: 0; border-radius: 50%; background: var(--accent); color: #fff; margin-top: -26px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.18); display: grid; place-items: center; }
+.tabbar .tab-add svg { width: 28px; height: 28px; stroke-width: 2.4; }
+.tabbar .tab-add[aria-current="page"] { color: #fff; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 11;
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; max-width: calc(100% - 32px); }
+.welcome h2 { font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1.15; margin: 0; }
+.eyebrow { margin: 0; font-family: var(--font-data); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.steps li span { display: block; font-size: 13px; }
+.big-btn { padding: 14px 18px; font-size: 16px; }
+.onboard-note { background: var(--accent-soft); border-color: transparent; gap: 4px; }
+@media (prefers-reduced-motion: no-preference) { .screen.active { animation: rise .18s ease-out; } }
+#screen-add .preview-total { position: sticky; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 2;
+  background: var(--bg); margin: 0 -16px -16px; padding: 12px 16px; border-top: 1px solid var(--line); border-radius: 0 0 14px 14px; }
+@keyframes rise { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Khana Diary</h1>
+    <h1 id="screen-title">Khana Diary</h1>
     <span class="date" id="date"></span>
   </header>
 
-  <section class="card" aria-label="Today so far">
+  <!-- First run: a short welcome before anything else -->
+  <div class="screen" id="screen-welcome">
+    <section class="card welcome">
+      <p class="eyebrow">Welcome</p>
+      <h2>Calories for real Indian food</h2>
+      <p class="muted">Type or say what you ate, like <i>"2 aloo paratha with amul butter and chai"</i>. Khana Diary works out calories and protein from Indian recipes, and suggests what to eat next. Everything stays on this phone and works offline.</p>
+      <ol class="steps">
+        <li><b>Set your goal</b> <span class="muted">age, height, weight, what you eat</span></li>
+        <li><b>Log meals in your own words</b> <span class="muted">Hinglish is fine</span></li>
+        <li><b>Add your home recipes</b> <span class="muted">the most accurate way to count</span></li>
+      </ol>
+      <button class="btn big-btn" type="button" id="welcome-start">Set my goal</button>
+      <button class="del" type="button" id="welcome-skip">Skip for now</button>
+    </section>
+  </div>
+
+  <div class="screen" id="screen-home">
+    <section class="card" aria-label="Today so far">
     <div class="summary-top">
       <div><div class="big" id="kcal-eaten">0</div><small class="muted">kcal eaten</small></div>
       <div style="text-align:right"><div class="num" id="kcal-left">1800 left</div><small class="muted">of <span id="kcal-target-label">1800</span> kcal</small></div>
@@ -131,15 +177,18 @@ textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 
     </div>
     <details class="micros"><summary>Micronutrients today</summary><div class="micro-grid" id="micro-grid"></div></details>
   </section>
-
-  <section class="card" aria-label="What to eat next" id="suggest-card">
-    <div class="item-head"><b id="sg-title">What to eat next</b><small class="muted" id="sg-budget"></small></div>
-    <div class="meals" id="sg-meals" role="group" aria-label="Suggest for"></div>
-    <div id="sg-options"><p class="empty">Loading ideas…</p></div>
-    <div id="sg-tips"></div>
+    <section class="card teaser" id="teaser" hidden>
+      <div class="item-head"><b id="teaser-title">Idea for your next meal</b><button class="del" type="button" data-go="ideas">More ideas</button></div>
+      <div id="teaser-body"></div>
+    </section>
+    <section class="card" aria-label="Today's log">
+    <div class="item-head"><b>Today</b><small class="muted" id="entry-count"></small></div>
+    <div id="log"><p class="empty">Nothing logged yet. Tap ＋ to add your first meal.</p></div>
   </section>
+  </div>
 
-  <section class="card" aria-label="Log a meal">
+  <div class="screen" id="screen-add">
+    <section class="card" aria-label="Log a meal">
     <div class="meals" id="meals" role="group" aria-label="Meal"></div>
     <div class="inputrow">
       <textarea id="meal-text" rows="2" placeholder="What did you eat? e.g. 2 aloo paratha with amul butter and chai"></textarea>
@@ -148,13 +197,19 @@ textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 
     <div class="examples" id="examples"></div>
     <div id="preview" aria-live="polite"></div>
   </section>
+  </div>
 
-  <section class="card" aria-label="Today's log">
-    <div class="item-head"><b>Today</b><small class="muted" id="entry-count"></small></div>
-    <div id="log"><p class="empty">Nothing logged yet. Type your first meal above.</p></div>
+  <div class="screen" id="screen-ideas">
+    <section class="card" aria-label="What to eat next" id="suggest-card">
+    <div class="item-head"><b id="sg-title">What to eat next</b><small class="muted" id="sg-budget"></small></div>
+    <div class="meals" id="sg-meals" role="group" aria-label="Suggest for"></div>
+    <div id="sg-options"><p class="empty">Loading ideas…</p></div>
+    <div id="sg-tips"></div>
   </section>
+  </div>
 
-  <section class="card" aria-label="My recipes">
+  <div class="screen" id="screen-recipes">
+    <section class="card" aria-label="My recipes">
     <div class="item-head"><b>My recipes</b><small class="muted">your own home cooking, logged once</small></div>
     <div id="recipes"></div>
     <details id="recipe-new">
@@ -176,9 +231,15 @@ textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 
       </form>
     </details>
   </section>
+  </div>
 
-  <section class="card" aria-label="My profile and goal">
-    <details id="profile-box">
+  <div class="screen" id="screen-me">
+    <section class="card onboard-note" id="onboard-note" hidden>
+      <b>Let's set your daily goal</b>
+      <small class="muted">This sets your calories and protein. You can change it any time here.</small>
+    </section>
+    <section class="card" aria-label="My profile and goal">
+    <details id="profile-box" open>
       <summary class="item-head" style="cursor:pointer;list-style:none"><b>My goal</b><small class="muted" id="goal-line">Set your profile</small></summary>
       <form class="recipe-form" id="profile-form" style="margin-top:12px">
         <div class="row2">
@@ -212,7 +273,17 @@ textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 
     </div>
     <small class="muted" id="backup-status"></small>
   </section>
+  </div>
 </div>
+
+<nav class="tabbar" id="tabbar" aria-label="Sections">
+  <button type="button" data-go="home" aria-label="Today"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg><span>Today</span></button>
+  <button type="button" data-go="ideas" aria-label="Ideas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg><span>Ideas</span></button>
+  <button type="button" data-go="add" class="tab-add" aria-label="Add a meal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button type="button" data-go="recipes" aria-label="My recipes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0zM8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg><span>Recipes</span></button>
+  <button type="button" data-go="me" aria-label="Me"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span>Me</span></button>
+</nav>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="engine.js"></script>
 <script>
@@ -328,6 +399,7 @@ $("#meal-text").addEventListener("keydown", e => { if (e.key === "Enter" && !e.s
 
 async function analyze() {
   const text = $("#meal-text").value.trim();
+  $("#examples").hidden = !!text;  // examples only help an empty box
   if (!text) { state.items = []; renderPreview(); return; }
   try { state.items = (await api("/api/analyze", { method: "POST", body: JSON.stringify({ text }) })).items; }
   catch (err) { $("#preview").innerHTML = `<p class="tag bad">Something went wrong reading that. Try again.</p>`; return; }
@@ -396,8 +468,10 @@ async function addToDay() {
   const entry = await api("/api/day", { method: "POST", body: JSON.stringify({ date: today, meal: state.meal,
     text: $("#meal-text").value.trim(), items: ok.map(i => ({ id: i.id, desc: i.desc, qty: i.qty, nutrients: i.nutrients })) }) });
   state.entries.push(entry);
+  const kcal = Math.round(ok.reduce((t, i) => t + (i.nutrients.kcal || 0), 0));
   $("#meal-text").value = ""; state.items = [];
   renderPreview(); renderDay(); loadSuggestions();
+  go("home"); toast(`Added ${kcal} kcal to ${state.meal.toLowerCase()}`);
 }
 
 async function loadDay() {
@@ -422,8 +496,8 @@ function renderDay() {
   $("#m-fibre").textContent = fmt(t.fibre_g); $("#m-sugar").textContent = fmt(t.sugar_g);
   $("#micro-grid").innerHTML = MICROS.map(([k, label, unit, ref, kind]) =>
     `<span>${label} <span class="muted">(${kind === "max" ? "limit" : "aim"} ${ref} ${unit})</span></span><span class="num">${fmt(t[k])} ${unit}</span>`).join("");
-  $("#entry-count").textContent = state.entries.length ? `${state.entries.length} entries` : "";
-  if (!state.entries.length) { $("#log").innerHTML = `<p class="empty">Nothing logged yet. Type your first meal above.</p>`; return; }
+  $("#entry-count").textContent = state.entries.length ? `${state.entries.length} ${state.entries.length === 1 ? "entry" : "entries"}` : "";
+  if (!state.entries.length) { $("#log").innerHTML = `<p class="empty">Nothing logged yet. Tap ＋ to add your first meal.</p>`; return; }
   $("#log").innerHTML = MEALS.map(m => {
     const es = state.entries.filter(e => e.meal === m);
     if (!es.length) return "";
@@ -451,6 +525,7 @@ function applyTargets(t) {
 }
 async function loadProfile() {
   const { profile, targets } = await api("/api/profile");
+  state.profile = profile;
   Object.entries(PF).forEach(([k, id]) => { if (profile[k] != null && profile[k] !== "") $(id).value = profile[k]; });
   if (!profile.weight_kg) $("#profile-box").open = true;
   applyTargets(targets);
@@ -461,14 +536,19 @@ $("#profile-form").addEventListener("submit", async e => {
   const { targets } = await api("/api/profile", { method: "POST", body: JSON.stringify(body) });
   applyTargets(targets);
   $("#p-status").textContent = `Saved. Your goal: ${targets.kcal} kcal and ${targets.protein_g} g protein a day.`;
+  state.profile = body;
   loadSuggestions();
+  if (onboarding) {
+    onboarding = false; $("#onboard-note").hidden = true;
+    go("home"); toast(`Your goal: ${targets.kcal} kcal and ${targets.protein_g} g protein a day`);
+  }
 });
 
 // ---- What to eat next ----
 let sgMeal = null;
 async function loadSuggestions() {
   const r = await api(`/api/suggest?date=${today}&hour=${new Date().getHours()}${sgMeal ? `&meal=${sgMeal}` : ""}`);
-  sgMeal = r.meal;
+  // sgMeal stays null unless the user taps a meal, so the app keeps picking the right next meal itself
   $("#sg-title").textContent = `Ideas for ${r.meal.toLowerCase()}`;
   $("#sg-budget").textContent = r.left_kcal > 0 ? `${r.budget_kcal} kcal for this meal · ${r.left_kcal} left today` : "Goal reached for today";
   $("#sg-meals").innerHTML = MEALS.map(m => `<button type="button" class="chip" aria-pressed="${m === r.meal}" data-m="${m}">${m}</button>`).join("");
@@ -478,11 +558,18 @@ async function loadSuggestions() {
       <div><button type="button" class="chip soft" data-log="${i}">Log this for ${esc(r.meal.toLowerCase())}</button></div></div>`).join("")
     : `<p class="empty">No full meal fits what's left today.</p>`;
   $("#sg-tips").innerHTML = r.tips.map(t => `<p class="q muted" style="margin:4px 0">${esc(t)}</p>`).join("");
-  $("#sg-options").querySelectorAll("[data-log]").forEach(b => b.onclick = () => {
-    state.meal = r.meal; renderMeals();
-    $("#meal-text").value = r.options[+b.dataset.log].log_text; analyze();
-    $("#meal-text").scrollIntoView({ behavior: "smooth", block: "center" });
-  });
+  const logIdea = i => { state.meal = r.meal; renderMeals(); go("add"); $("#meal-text").value = r.options[i].log_text; analyze(); };
+  $("#sg-options").querySelectorAll("[data-log]").forEach(b => b.onclick = () => logIdea(+b.dataset.log));
+  // Today screen shows the top idea
+  const top = r.options[0];
+  $("#teaser").hidden = !top;
+  if (top) {
+    $("#teaser-title").textContent = `Idea for ${r.meal.toLowerCase()}`;
+    $("#teaser-body").innerHTML = `<div class="item-head"><b>${esc(top.text)}</b><span class="item-kcal">${top.kcal} kcal</span></div>
+      <small class="muted">${top.protein_g} g protein · fits the ${r.budget_kcal} kcal you have for this meal</small>
+      <div><button type="button" class="chip soft" id="teaser-log">Log this</button></div>`;
+    $("#teaser-log").onclick = () => logIdea(0);
+  }
 }
 $("#sg-meals").onclick = e => { const b = e.target.closest("button"); if (b) { sgMeal = b.dataset.m; loadSuggestions(); } };
 
@@ -502,7 +589,36 @@ if (!SR) { $("#mic").hidden = true; } else {
 }
 
 $("#date").textContent = new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-renderMeals(); loadDay(); loadProfile().then(loadSuggestions);
+// ---- App flow: screens, tab bar, first-run welcome ----
+const TITLES = { welcome: "Khana Diary", home: "Khana Diary", add: "Add a meal", ideas: "What to eat",
+  recipes: "My recipes", me: "My goal" };
+let onboarding = false, toastTimer;
+function go(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === `screen-${name}`));
+  document.querySelectorAll("#tabbar [data-go]").forEach(b => b.toggleAttribute("aria-current", b.dataset.go === name));
+  document.querySelectorAll("#tabbar [data-go]").forEach(b => { if (b.dataset.go === name) b.setAttribute("aria-current", "page"); });
+  $("#tabbar").hidden = name === "welcome";
+  $("#screen-title").textContent = TITLES[name];
+  window.scrollTo(0, 0);
+  if (name === "add") setTimeout(() => $("#meal-text").focus(), 60);
+  if (name === "ideas") loadSuggestions();
+}
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 2600);
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (b) go(b.dataset.go); });
+$("#welcome-start").onclick = () => {
+  store.set("welcomed", true); onboarding = true; $("#onboard-note").hidden = false; go("me");
+};
+$("#welcome-skip").onclick = () => { store.set("welcomed", true); go("home"); };
+
+renderMeals(); loadDay();
+loadProfile().then(() => {
+  const firstRun = !(state.profile && state.profile.weight_kg) && !store.get("welcomed", false);
+  go(firstRun ? "welcome" : "home");
+  loadSuggestions();
+});
 api("/api/meta").then(m => $("#meta").textContent = `Database: ${m.dishes} dishes, ${m.portions} portions, ${m.names} names it recognises.`).catch(() => {});
 
 // ---- My recipes ----

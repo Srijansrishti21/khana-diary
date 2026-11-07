@@ -564,7 +564,7 @@
       if (hour < 4) return ["Snack", ["Snack"]];
       const byTime = hour < 11 ? "Breakfast" : hour < 16 ? "Lunch" : hour < 18 ? "Snack" : "Dinner";
       const later = MEAL_ORDER.slice(MEAL_ORDER.indexOf(byTime)).filter(m => !eatenMeals.has(m) || m === "Snack");
-      return later.length ? [later[0], later] : ["Dinner", ["Dinner"]];
+      return later.length ? [later[0], later] : ["Snack", ["Snack"]];  // all main meals logged: a light snack only
     }
     function suggest(dayEntries, profile, hour, meal = null, mine = {}, n = 5) {
       const t = targets(profile);
