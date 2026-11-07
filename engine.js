@@ -64,7 +64,7 @@
     plates: "plate", glasses: "glass", cups: "cup", plate: "plate", glass: "glass", cup: "cup", tsp: "tsp",
     teaspoon: "tsp", spoon: "tsp", chammach: "tsp", tbsp: "tbsp", tablespoon: "tbsp", piece: "piece", pieces: "piece",
     pcs: "piece", slice: "slice", slices: "slice", scoop: "scoop", scoops: "scoop", pack: "pack", packet: "pack", chiplet: "pack", sachet: "pack",
-    g: "g", gm: "g", gms: "g", grams: "g", pc: "piece", nos: "piece" };  // not "gram": horse gram, bengal gram
+    g: "g", gm: "g", gms: "g", grams: "g", "gram's": "g", gmm: "g", ml: "ml", mls: "ml", millilitre: "ml", milliliter: "ml", pc: "piece", nos: "piece" };  // not "gram": horse gram, bengal gram
   const SUGAR_MODS = [[/\b(without sugar|no sugar|bina (?:cheeni|chini|shakkar)|sugar ?free|sugarless|unsweetened|fika|pheeka|feeka)\b/g, 0.0],
     [/\b(less sugar|kam (?:cheeni|chini|meetha)|half sugar)\b/g, 0.5]];
   const OIL_MODS = [[/\b(without oil|no oil|oil ?free|bina tel|zero oil)\b/g, 0.1],
@@ -89,6 +89,13 @@
   const BOWL_G = [[/soup|shorba/i, 250], [/salad|overnight oats|cornflakes|muesli|porridge|daliya/i, 200]];
   // Size of each dish serving unit, to rescale it to the container typed (a katori is a volume, not 150 g of makhana).
   const SERVING_NOMINAL_G = { katori: 150, small_katori: 100, plate: 200, small_plate: 150, portion: 150, tbsp_portion: 30 };
+  const LITRE_WORDS = new Set(["litre", "liter", "litres", "liters", "ltr", "ltrs"]);
+  // Words that mean the same food word: "chicken shorba" = "chicken soup".
+  const SYNONYMS = { shorba: "soup", shorbha: "soup", yakhni: "soup", sabji: "sabzi", subzi: "sabzi", subji: "sabzi",
+    sabjee: "sabzi", bhurjee: "bhurji", chawal: "rice", salaad: "salad" };
+  // A bare number this big ("200 chicken soup") is grams or ml, not 200 servings.
+  const BARE_GRAMS_FROM = 50;
+  const CONTAINER_UNITS = ["glass", "cup", "katori", "small katori", "tsp", "tbsp", "portion"];
   // Words that can be dropped when nothing matches: "karela sabzi" -> "karela", "veg uttapam" -> "uttapam".
   const OPTIONAL_WORDS = new Set(["sabzi", "sabji", "subzi", "bhaji", "vegetable", "veg", "plain", "toast", "homemade", "simple"]);
   // "omelette of 3 eggs", "3 egg omelette": count eggs, not omelettes.
@@ -193,6 +200,7 @@
         else if (FILLER_SIZE.has(tok)) continue;
         else if (tok in SIZE_WORDS) size = SIZE_WORDS[tok];
         else if (tok in UNIT_WORDS) unit = UNIT_WORDS[tok];
+        else if (LITRE_WORDS.has(tok)) { unit = "ml"; qty = (qty || 1) * 1000; }  // "1 litre", "half litre" -> ml
         else if (!FILLER.has(tok)) words.push(tok);
       }
       const food = words.join(" ").replace(/§/g, " ").replace(/sixfive/g, "65");
@@ -236,10 +244,12 @@
       return [null, 0];
     }
     function matchLoose(food) {
-      const [hit, score] = match(food);
+      let [hit, score] = match(food);
       if (hit) return [hit, score];
-      const core = food.split(/\s+/).filter(w => w && !OPTIONAL_WORDS.has(w)).join(" ");
-      return core && core !== food ? match(core) : [null, 0];
+      const same = food.split(/\s+/).filter(Boolean).map(w => SYNONYMS[w] || w).join(" ");
+      if (same !== food) { [hit, score] = match(same); if (hit) return [hit, score]; }
+      const core = same.split(/\s+/).filter(w => w && !OPTIONAL_WORDS.has(w)).join(" ");
+      return core && core !== same ? match(core) : [null, 0];
     }
     const eggsIn = dish => { const m = dish.match(/(\d+) (?:eggs?|whites?)/); return m ? parseInt(m[1], 10) : null; };
     function suggestionsFor(food, n = 5) {
@@ -282,6 +292,8 @@
         }
         let [qty, size, unit, food] = parseItem(clean);
         const counted = qty !== null; qty = qty || 1;
+        const ml = unit === "ml";  // liquids by volume: counted like grams (about 1 g per ml), shown as ml
+        if (ml) unit = "g";
         if (!food) continue;
         let item = { text: chunk, qty };
         let rid = matchMine(food, mine), note = "";
@@ -327,6 +339,9 @@
         if (!hit) { items.push({ ...item, status: "unknown", suggestions: suggestionsFor(food) }); continue; }
         let [kind, key] = hit;
         let sizes = [], ask = null, row, desc;
+        const countable = (kind === "dish" && DATA.dishes[key].serving === "piece") ||
+          (kind === "basic" && !CONTAINER_UNITS.some(c => Object.keys(DATA.basics[key].units)[0].startsWith(c)));  // "60 almonds"
+        if (unit === null && counted && qty >= BARE_GRAMS_FROM && !countable) unit = "g";  // "200 chicken soup": 200 g, not 200 bowls
         if (kind === "brand") {
           const brandSize = /\bregular\b/.test(chunk) ? "regular" : size;
           let b; [b, qty] = brandPick(key, brandSize, qty, counted); key = b.id; row = {};
@@ -335,7 +350,10 @@
         } else if (kind === "book") {
           const b = DATA.book[key];
           let [g, unitName] = (BOOK_SERVING_G.find(([re]) => re.test(b.dish)) || [null, null, null]).slice(1);
-          if (unit in UNIT_G || g) {
+          if (unit === "g") {  // "200 g dalia khichdi": weigh it
+            g = qty; qty = 1; unitName = `${fmtG(g)} g`;
+            row = {}; for (const [k, v] of Object.entries(b.per100)) row[k] = v * g / 100;
+          } else if (unit in UNIT_G || g) {
             g = unit === "katori" ? KATORI_G[size || "medium"] : (UNIT_G[unit] || g);
             unitName = unit || unitName;
             row = {}; for (const [k, v] of Object.entries(b.per100)) row[k] = v * g / 100;
@@ -410,6 +428,7 @@
           desc += oilF > 0.1 ? " (less oil)" : " (almost no oil)";
         }
         desc += note;
+        if (ml) desc = desc.replace(/^([\d.]+) g /, "$1 ml ");
         for (const k of Object.keys(nutrients)) nutrients[k] = round2(nutrients[k]);
         item.qty = Math.round(qty * 1000) / 1000;
         items.push({ ...item, status: "ok", kind, id: key, desc, confirm: score < 0.85, matched_from: food, sizes,
