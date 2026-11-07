@@ -283,6 +283,10 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
       <input type="file" id="backup-in" accept="application/json,.json" hidden>
     </div>
     <small class="muted" id="backup-status"></small>
+    <div class="examples" style="margin-top:8px">
+      <button type="button" class="chip" id="misses-out">Send what it didn't understand</button>
+    </div>
+    <small class="muted" id="misses-status">Only the food you typed that it couldn't read. No meals, weight or recipes.</small>
   </section>
   </div>
 </div>
@@ -334,7 +338,9 @@ async function api(path, opts = {}) {
   const recipes = Local.get("recipes", {}), daylog = Local.get("daylog", {}), profile = Local.get("profile", {});
   if (route === "/api/analyze") {
     const items = body.text ? eng.analyze(body.text, recipes) : [];
-    const ql = Local.get("queries", []); ql.push({ at: new Date().toISOString(), text: body.text, statuses: items.map(i => i.status) });
+    const ql = Local.get("queries", []);
+    ql.push({ at: new Date().toISOString(), text: body.text, statuses: items.map(i => i.status),
+      misses: items.filter(i => i.status !== "ok").map(i => ({ text: i.text, status: i.status, suggestions: i.suggestions })) });
     Local.set("queries", ql.slice(-500));
     return { items };
   }
@@ -387,10 +393,26 @@ async function api(path, opts = {}) {
 // Backup: everything lives on this phone, so let people copy it out and back in.
 function exportBackup() {
   const data = { app: "khana-diary", at: new Date().toISOString(), daylog: Local.get("daylog", {}),
-    recipes: Local.get("recipes", {}), profile: Local.get("profile", {}) };
+    recipes: Local.get("recipes", {}), profile: Local.get("profile", {}), queries: Local.get("queries", []) };
+  saveFile(data, `khana-diary-${today}.json`);
+}
+function saveFile(data, name) {
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `khana-diary-${today}.json` });
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: name });
   document.body.appendChild(a); a.click(); a.remove();
+}
+// Only what the app couldn't understand (no meals, recipes or profile), so it can be sent to fix the app.
+async function exportMisses() {
+  const misses = Local.get("queries", []).filter(q => (q.misses || []).length || (q.statuses || []).some(s => s !== "ok"));
+  const data = { app: "khana-diary-misses", at: new Date().toISOString(), misses };
+  const name = `khana-misses-${today}.json`;
+  const file = new File([JSON.stringify(data)], name, { type: "application/json" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: "Khana Diary: not understood" }); return misses.length; }
+    catch (e) { if (e.name === "AbortError") return null; }
+  }
+  saveFile(data, name);
+  return misses.length;
 }
 async function importBackup(file) {
   const d = JSON.parse(await file.text());
@@ -398,6 +420,10 @@ async function importBackup(file) {
   Local.set("daylog", { ...Local.get("daylog", {}), ...d.daylog });
   Local.set("recipes", { ...Local.get("recipes", {}), ...d.recipes });
   if (d.profile && Object.keys(d.profile).length) Local.set("profile", d.profile);
+  if (Array.isArray(d.queries)) {
+    const seen = new Set(Local.get("queries", []).map(q => q.at + q.text));
+    Local.set("queries", [...Local.get("queries", []), ...d.queries.filter(q => !seen.has(q.at + q.text))].slice(-500));
+  }
 }
 if ("serviceWorker" in navigator) {
   // When a new version has been downloaded and takes over, reload once so the new data is used
@@ -716,6 +742,10 @@ async function loadRecipes() {
 loadRecipes();
 
 $("#backup-out").onclick = exportBackup;
+$("#misses-out").onclick = async () => {
+  const n = await exportMisses();
+  if (n !== null) $("#misses-status").textContent = n ? `${n} entries ready to send.` : "Nothing it didn't understand yet.";
+};
 $("#backup-in").onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   try { await importBackup(f); $("#backup-status").textContent = "Restored."; loadDay(); loadRecipes(); loadProfile().then(loadSuggestions); }
