@@ -1,6 +1,6 @@
 {
-  "name": "Khana Diary",
-  "short_name": "Khana Diary",
+  "name": "Counted Calories",
+  "short_name": "Counted Cal",
   "description": "Indian food calorie diary that works offline.",
   "start_url": "./",
   "scope": "./",

@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Khana Diary</title>
+<title>Counted Calories</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#141714">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Khana Diary">
+<meta name="apple-mobile-web-app-title" content="Counted Calories">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
@@ -144,7 +144,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 <body>
 <div class="wrap">
   <header>
-    <h1 id="screen-title">Khana Diary</h1>
+    <h1 id="screen-title">Counted Calories</h1>
     <span class="date" id="date"></span>
   </header>
 
@@ -153,7 +153,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
     <section class="card welcome">
       <p class="eyebrow">Welcome</p>
       <h2>Calories for real Indian food</h2>
-      <p class="muted">Type or say what you ate, like <i>"2 aloo paratha with amul butter and chai"</i>. Khana Diary works out calories and protein from Indian recipes, and suggests what to eat next. Everything stays on this phone and works offline.</p>
+      <p class="muted">Type or say what you ate, like <i>"2 aloo paratha with amul butter and chai"</i>. Counted Calories works out calories and protein from Indian recipes, and suggests what to eat next. Everything stays on this phone and works offline.</p>
       <ol class="steps">
         <li><b>Set your goal</b> <span class="muted">age, height, weight, what you eat</span></li>
         <li><b>Log meals in your own words</b> <span class="muted">Hinglish is fine</span></li>
@@ -394,7 +394,7 @@ async function api(path, opts = {}) {
 function exportBackup() {
   const data = { app: "khana-diary", at: new Date().toISOString(), daylog: Local.get("daylog", {}),
     recipes: Local.get("recipes", {}), profile: Local.get("profile", {}), queries: Local.get("queries", []) };
-  saveFile(data, `khana-diary-${today}.json`);
+  saveFile(data, `counted-calories-${today}.json`);
 }
 function saveFile(data, name) {
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
@@ -405,10 +405,10 @@ function saveFile(data, name) {
 async function exportMisses() {
   const misses = Local.get("queries", []).filter(q => (q.misses || []).length || (q.statuses || []).some(s => s !== "ok"));
   const data = { app: "khana-diary-misses", at: new Date().toISOString(), misses };
-  const name = `khana-misses-${today}.json`;
+  const name = `counted-calories-misses-${today}.json`;
   const file = new File([JSON.stringify(data)], name, { type: "application/json" });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: "Khana Diary: not understood" }); return misses.length; }
+    try { await navigator.share({ files: [file], title: "Counted Calories: not understood" }); return misses.length; }
     catch (e) { if (e.name === "AbortError") return null; }
   }
   saveFile(data, name);
@@ -416,7 +416,7 @@ async function exportMisses() {
 }
 async function importBackup(file) {
   const d = JSON.parse(await file.text());
-  if (d.app !== "khana-diary") throw new Error("That file isn't a Khana Diary backup.");
+  if (d.app !== "khana-diary") throw new Error("That file isn't a Counted Calories backup.");
   Local.set("daylog", { ...Local.get("daylog", {}), ...d.daylog });
   Local.set("recipes", { ...Local.get("recipes", {}), ...d.recipes });
   if (d.profile && Object.keys(d.profile).length) Local.set("profile", d.profile);
@@ -657,7 +657,7 @@ async function loadRecent() {
 }
 
 // ---- App flow: screens, tab bar, first-run welcome ----
-const TITLES = { welcome: "Khana Diary", home: "Khana Diary", add: "Add a meal", ideas: "What to eat",
+const TITLES = { welcome: "Counted Calories", home: "Counted Calories", add: "Add a meal", ideas: "What to eat",
   recipes: "My recipes", me: "My goal" };
 let onboarding = false, toastTimer;
 function go(name) {
