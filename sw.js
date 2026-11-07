@@ -1,11 +1,15 @@
 // Offline cache for Khana Diary. build_pwa.py writes sw.js from this file with a new version
 // whenever the app changes; phones then download the update once and keep working offline.
-const CACHE = "khana-511e231069";
+const CACHE = "khana-4839cf06c9";
 const FILES = ["./", "index.html", "engine.js", "data.json", "manifest.webmanifest",
   "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: "reload" skips the browser's HTTP cache: GitHub Pages lets browsers keep files for 10 minutes,
+  // which would otherwise put the previous version's files into the new cache.
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", e => {
