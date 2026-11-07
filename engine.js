@@ -347,7 +347,8 @@
           row = DATA.portions[key].n; desc = DATA.portions[key].label;
         } else if (kind === "basic") {
           const b = DATA.basics[key], units = Object.keys(b.units);
-          const p = units.find(u => unit && u.startsWith(unit)) || units.find(u => size && u.includes(size)) || units[0];
+          const p = units.find(u => unit && u.startsWith(unit)) || units.find(u => size && u.includes(size)) ||
+            units.find(u => u.startsWith("medium")) || units[0];  // "1 banana" = a medium one
           row = DATA.portions[`basic:${key}:${p}`].n; desc = `${p} ${b.name.toLowerCase()}`;
           if (unit === "g") {  // "100 g tofu": weigh it, don't count 100 servings
             const per = qty / DATA.portions[`basic:${key}:${p}`].grams; const r2 = {};

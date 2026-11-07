@@ -1,6 +1,6 @@
 // Offline cache for Khana Diary. build_pwa.py writes sw.js from this file with a new version
 // whenever the app changes; phones then download the update once and keep working offline.
-const CACHE = "khana-70e63cbc8a";
+const CACHE = "khana-32dd602ab9";
 const FILES = ["./", "index.html", "engine.js", "data.json", "manifest.webmanifest",
   "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 
