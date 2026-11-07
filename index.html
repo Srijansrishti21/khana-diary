@@ -132,6 +132,12 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 @media (prefers-reduced-motion: no-preference) { .screen.active { animation: rise .18s ease-out; } }
 #screen-add .preview-total { position: sticky; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 2;
   background: var(--bg); margin: 0 -16px -16px; padding: 12px 16px; border-top: 1px solid var(--line); border-radius: 0 0 14px 14px; }
+.logcard { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.section-title { font-size: 17px; }
+.fakeinput { font: inherit; font-size: 16px; text-align: left; padding: 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--fg); cursor: pointer; display: grid; gap: 2px; }
+.fakeinput span { font-size: 13px; color: var(--muted); }
+.quick { flex: 1 1 0; min-width: 0; text-align: center; padding: 8px 2px; white-space: nowrap; font-size: 12.5px; }
 @keyframes rise { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 </style>
 </head>
@@ -177,14 +183,19 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
     </div>
     <details class="micros"><summary>Micronutrients today</summary><div class="micro-grid" id="micro-grid"></div></details>
   </section>
+
+    
+    <section class="card logcard" aria-label="Log food">
+      <div class="item-head"><b class="section-title">Log food</b><small class="muted" id="entry-count"></small></div>
+      <button type="button" class="fakeinput" data-go="add">What did you eat? <span>Type or speak…</span></button>
+      <div class="meals" id="quick-meals" role="group" aria-label="Log a meal"></div>
+      <div id="recent-wrap" hidden><small class="muted">Eat this again</small><div class="examples" id="recent"></div></div>
+      <div id="log"><p class="empty">Nothing logged yet. Tap ＋ to add your first meal.</p></div>
+    </section>
     <section class="card teaser" id="teaser" hidden>
       <div class="item-head"><b id="teaser-title">Idea for your next meal</b><button class="del" type="button" data-go="ideas">More ideas</button></div>
       <div id="teaser-body"></div>
     </section>
-    <section class="card" aria-label="Today's log">
-    <div class="item-head"><b>Today</b><small class="muted" id="entry-count"></small></div>
-    <div id="log"><p class="empty">Nothing logged yet. Tap ＋ to add your first meal.</p></div>
-  </section>
   </div>
 
   <div class="screen" id="screen-add">
@@ -278,8 +289,8 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 
 <nav class="tabbar" id="tabbar" aria-label="Sections">
   <button type="button" data-go="home" aria-label="Today"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg><span>Today</span></button>
+  <button type="button" data-go="add" class="tab-add" aria-label="Log food"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
   <button type="button" data-go="ideas" aria-label="Ideas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg><span>Ideas</span></button>
-  <button type="button" data-go="add" class="tab-add" aria-label="Add a meal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
   <button type="button" data-go="recipes" aria-label="My recipes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0zM8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg><span>Recipes</span></button>
   <button type="button" data-go="me" aria-label="Me"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span>Me</span></button>
 </nav>
@@ -339,6 +350,19 @@ async function api(path, opts = {}) {
     Local.set("daylog", daylog); return { ok: true };
   }
   if (route === "/api/meta") return eng.counts;
+  if (route === "/api/recent") {
+    const todayKey = new Date().toLocaleDateString("en-CA"), seen = new Set(), recent = [];
+    for (const d of Object.keys(daylog).sort().reverse()) {
+      if (d >= todayKey) continue;
+      for (const e of [...daylog[d]].reverse()) {
+        const k = (e.text || "").trim().toLowerCase();
+        if (k && !seen.has(k)) { seen.add(k); recent.push({ text: e.text, meal: e.meal,
+          kcal: Math.round(e.items.reduce((t, i) => t + (i.nutrients.kcal || 0), 0)) }); }
+        if (recent.length === 6) return { recent };
+      }
+    }
+    return { recent };
+  }
   if (route === "/api/profile" && method === "GET") return { profile, targets: eng.targets(profile) };
   if (route === "/api/profile" && method === "POST") { Local.set("profile", body); return { profile: body, targets: eng.targets(body) }; }
   if (route === "/api/suggest") {
@@ -471,7 +495,7 @@ async function addToDay() {
   const kcal = Math.round(ok.reduce((t, i) => t + (i.nutrients.kcal || 0), 0));
   $("#meal-text").value = ""; state.items = [];
   renderPreview(); renderDay(); loadSuggestions();
-  go("home"); toast(`Added ${kcal} kcal to ${state.meal.toLowerCase()}`);
+  go("home"); toast(`Added ${kcal} kcal to ${state.meal.toLowerCase()}`); loadRecent();
 }
 
 async function loadDay() {
@@ -589,6 +613,23 @@ if (!SR) { $("#mic").hidden = true; } else {
 }
 
 $("#date").textContent = new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+// ---- Log food card: quick meal buttons and one-tap repeats ----
+function renderQuick() {
+  $("#quick-meals").innerHTML = MEALS.map(m => `<button type="button" class="chip quick" data-quick="${m}">+ ${m}</button>`).join("");
+}
+$("#quick-meals").onclick = e => { const b = e.target.closest("[data-quick]"); if (b) { state.meal = b.dataset.quick; renderMeals(); go("add"); } };
+async function loadRecent() {
+  let recent = [];
+  try { recent = (await api("/api/recent")).recent || []; } catch {}
+  $("#recent-wrap").hidden = !recent.length;
+  $("#recent").innerHTML = recent.map((r, i) => `<button type="button" class="chip soft" data-recent="${i}">${esc(r.text)} · ${r.kcal}</button>`).join("");
+  $("#recent").querySelectorAll("[data-recent]").forEach(b => b.onclick = () => {
+    const r = recent[+b.dataset.recent];
+    state.meal = MEALS.includes(r.meal) ? r.meal : state.meal; renderMeals(); go("add");
+    $("#meal-text").value = r.text; analyze();
+  });
+}
+
 // ---- App flow: screens, tab bar, first-run welcome ----
 const TITLES = { welcome: "Khana Diary", home: "Khana Diary", add: "Add a meal", ideas: "What to eat",
   recipes: "My recipes", me: "My goal" };
@@ -613,7 +654,7 @@ $("#welcome-start").onclick = () => {
 };
 $("#welcome-skip").onclick = () => { store.set("welcomed", true); go("home"); };
 
-renderMeals(); loadDay();
+renderMeals(); renderQuick(); loadDay(); loadRecent();
 loadProfile().then(() => {
   const firstRun = !(state.profile && state.profile.weight_kg) && !store.get("welcomed", false);
   go(firstRun ? "welcome" : "home");

@@ -64,7 +64,7 @@
     plates: "plate", glasses: "glass", cups: "cup", plate: "plate", glass: "glass", cup: "cup", tsp: "tsp",
     teaspoon: "tsp", spoon: "tsp", chammach: "tsp", tbsp: "tbsp", tablespoon: "tbsp", piece: "piece", pieces: "piece",
     pcs: "piece", slice: "slice", pack: "pack", packet: "pack", chiplet: "pack", sachet: "pack",
-    g: "g", gm: "g", gms: "g", gram: "g", grams: "g", pc: "piece", nos: "piece" };
+    g: "g", gm: "g", gms: "g", grams: "g", pc: "piece", nos: "piece" };  // not "gram": horse gram, bengal gram
   const SUGAR_MODS = [[/\b(without sugar|no sugar|bina (?:cheeni|chini|shakkar)|sugar ?free|sugarless|unsweetened|fika|pheeka|feeka)\b/g, 0.0],
     [/\b(less sugar|kam (?:cheeni|chini|meetha)|half sugar)\b/g, 0.5]];
   const OIL_MODS = [[/\b(without oil|no oil|oil ?free|bina tel|zero oil)\b/g, 0.1],
@@ -301,6 +301,11 @@
           const b = DATA.basics[key], units = Object.keys(b.units);
           const p = units.find(u => unit && u.startsWith(unit)) || units.find(u => size && u.includes(size)) || units[0];
           row = DATA.portions[`basic:${key}:${p}`].n; desc = `${p} ${b.name.toLowerCase()}`;
+          if (unit === "g") {  // "100 g tofu": weigh it, don't count 100 servings
+            const per = qty / DATA.portions[`basic:${key}:${p}`].grams; const r2 = {};
+            for (const k of NUTRIENT_KEYS) if (row[k] != null) r2[k] = row[k] * per;
+            row = r2; desc = `${fmtG(qty)} g ${b.name.toLowerCase()}`; qty = 1;
+          }
           sizes = units.map(u => ({ label: u, text: `${fmtG(qty)} ${u} ${b.name.split("(")[0].trim().toLowerCase()}`, active: u === p }));
         } else {
           const d = DATA.dishes[key], pid = `${key}:${size || "medium"}`;
@@ -312,6 +317,11 @@
             sizes = ["small", "medium", "large"].filter(sz => DATA.portions[`${key}:${sz}`]).map(sz => ({
               label: `${titleCase(sz)}: ${DATA.portions[`${key}:${sz}`].description}`, text: `${sz} ${base}`,
               active: sz === (size || "medium") }));
+          }
+          if (unit === "g" && d.serving_g) {  // "200 g dal": scale by weight
+            const per = qty / d.serving_g; const r2 = {};
+            for (const k of [...NUTRIENT_KEYS, "added_fat_g"]) if (d.n[k] != null) r2[k] = d.n[k] * per;
+            row = r2; desc = `${fmtG(qty)} g ${d.dish}`; qty = 1; sizes = [];
           }
           if (unit === "piece" && (d.serving === "katori" || d.serving === "small_katori") && d.category === "curry") {
             const frac = PIECE_IN_GRAVY_G / d.serving_g;
@@ -353,7 +363,7 @@
       tablespoon: ["tbsp", 1], "table spoon": ["tbsp", 1], tbsp: ["tbsp", 1], tbs: ["tbsp", 1], tblsp: ["tbsp", 1],
       tbl: ["tbsp", 1], "bada chammach": ["tbsp", 1], teaspoons: ["tsp", 1], teaspoon: ["tsp", 1],
       "tea spoon": ["tsp", 1], tsp: ["tsp", 1], ts: ["tsp", 1], chammach: ["tsp", 1], spoons: ["tsp", 1],
-      spoon: ["tsp", 1], kgs: ["kg", 1], kg: ["kg", 1], kilo: ["kg", 1], grams: ["g", 1], gram: ["g", 1],
+      spoon: ["tsp", 1], kgs: ["kg", 1], kg: ["kg", 1], kilo: ["kg", 1], grams: ["g", 1],
       gms: ["g", 1], gm: ["g", 1], g: ["g", 1], ml: ["ml", 1], litres: ["l", 1], litre: ["l", 1], liter: ["l", 1],
       ltr: ["l", 1], l: ["l", 1], pinch: ["g", 0.3], bunch: ["g", 150], handful: ["g", 30], mutthi: ["g", 30], inch: ["g", 10] };
     const R_UNIT_KEYS = Object.keys(R_UNITS).sort((x, y) => y.length - x.length);
