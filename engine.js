@@ -90,6 +90,29 @@
   // Size of each dish serving unit, to rescale it to the container typed (a katori is a volume, not 150 g of makhana).
   const SERVING_NOMINAL_G = { katori: 150, small_katori: 100, plate: 200, small_plate: 150, portion: 150, tbsp_portion: 30 };
   const LITRE_WORDS = new Set(["litre", "liter", "litres", "liters", "ltr", "ltrs"]);
+  // Usually weighed dry: "50 g soya chunks", "40 g oats".
+  const DRY_BY_DEFAULT = new Set(["soya chunks", "soya nuggets", "nutrela", "oats", "rolled oats"]);
+  // A piece of a dish served by the portion (tikka, tandoori, fish fry) is one piece, not one portion (150 g).
+  const PIECE_OF_PORTION_G = [[/tandoori/i, 80], [/fish/i, 80], [/prawn/i, 15], [/tikka|kebab|kabab|65|chilli|manchurian/i, 30]];
+  const PIECE_DEFAULT_G = 40;
+  // Plates that are a whole meal: "1 plate rice" is rice on a plate, not a South Indian meals thali.
+  const PLATE_NOT_FOR = new Set(["chapati", "steamed_rice"]);
+  // A generic word that could be several different dishes: ask which one, then log it.
+  const GENERIC_ASK = {
+    chicken: [["chicken", "chicken leg", "chicken legs", "chicken piece", "chicken pieces", "murga", "murgi"],
+      "Which chicken: curry, tandoori, plain boiled/grilled breast, or keema?",
+      { Curry: "chicken curry", Tandoori: "tandoori chicken", "Plain breast": "chicken breast", Keema: "chicken keema" }],
+    fish: [["fish", "fish piece", "fish pieces", "machli", "machhi", "machhli"], "Which fish: curry, fry, or grilled/tawa?",
+      { Curry: "fish curry", Fry: "fish fry", Grilled: "grilled fish" }],
+    mutton: [["mutton", "gosht", "mutton pieces"], "Which mutton: curry or keema?", { Curry: "mutton curry", Keema: "mutton keema" }],
+    soup: [["soup"], "Which soup?", { Tomato: "tomato soup", "Sweet corn": "sweet corn soup", "Veg clear": "clear veg soup",
+      Chicken: "chicken clear soup", Dal: "moong dal soup" }],
+  };
+  const KG_WORDS = new Set(["kg", "kgs", "kilo", "kilos", "kilogram", "kilograms"]);
+  // Only right after a number, so "horse gram", "bengal gram" stay food names: "200 gram dahi", "1 l milk".
+  const AFTER_NUMBER_UNITS = { gram: "g", grm: "g", grms: "g", gr: "g", gramm: "g", l: "ml" };
+  // "40 g dry oats", "50 gm kacha chawal": weighed before cooking -> the raw ingredient, not the cooked dish.
+  const RAW_WORDS = /\b(raw|dry|uncooked|kacha|kachcha|kaccha|kachha)\b/g;
   // Words that mean the same food word: "chicken shorba" = "chicken soup".
   const SYNONYMS = { shorba: "soup", shorbha: "soup", yakhni: "soup", sabji: "sabzi", subzi: "sabzi", subji: "sabzi",
     sabjee: "sabzi", bhurjee: "bhurji", chawal: "rice", salaad: "salad" };
@@ -97,7 +120,7 @@
   const BARE_GRAMS_FROM = 50;
   const CONTAINER_UNITS = ["glass", "cup", "katori", "small katori", "tsp", "tbsp", "portion"];
   // Words that can be dropped when nothing matches: "karela sabzi" -> "karela", "veg uttapam" -> "uttapam".
-  const OPTIONAL_WORDS = new Set(["sabzi", "sabji", "subzi", "bhaji", "vegetable", "veg", "plain", "toast", "homemade", "simple"]);
+  const OPTIONAL_WORDS = new Set(["sabzi", "sabji", "subzi", "bhaji", "vegetable", "veg", "plain", "toast", "homemade", "simple", "dry", "raw"]);
   // "omelette of 3 eggs", "3 egg omelette": count eggs, not omelettes.
   const EGG_COUNT = /\b(?:of |with )?(\d+|one|two|three|four|five|six|ek|do|teen|char|chaar)\s+(?:egg whites?|eggs?|whites?|ande|anda)\b/;
   const DESCRIBERS = new Set(["vegetable", "vegetables", "veg", "veggies", "mixed", "sabzi", "sabzian"]);
@@ -192,9 +215,13 @@
       let qty = null, size = null, unit = null; const words = [];
       chunk = protectNumbered(chunk).replace(/½/g, " 1/2 ").replace(/¼/g, " 1/4 ").replace(/¾/g, " 3/4 ");
       chunk = chunk.replace(/\d+\s*%/g, " ");
+      let prevNum = false;
       for (const tok of chunk.match(/\d+\/\d+|[\d.]+|[a-z§]+/g) || []) {
+        const afterNum = prevNum; prevNum = /^[\d./]+$/.test(tok);
         if (tok in NUMBER_WORDS && qty !== null && NUMBER_WORDS[tok] === qty) continue;
-        if (tok.includes("/")) { const [n, d] = tok.split("/"); qty = parseFloat(n) / parseFloat(d); }
+        if (afterNum && tok in AFTER_NUMBER_UNITS) { unit = AFTER_NUMBER_UNITS[tok]; if (tok === "l") qty *= 1000; }
+        else if (KG_WORDS.has(tok)) { unit = "g"; qty = (qty || 1) * 1000; }  // "1 kg", "half kg" -> grams
+        else if (tok.includes("/")) { const [n, d] = tok.split("/"); qty = parseFloat(n) / parseFloat(d); }
         else if (/^[\d.]+$/.test(tok)) qty = parseFloat(tok);
         else if (tok in NUMBER_WORDS && qty === null) qty = NUMBER_WORDS[tok];
         else if (FILLER_SIZE.has(tok)) continue;
@@ -251,6 +278,13 @@
       const core = same.split(/\s+/).filter(w => w && !OPTIONAL_WORDS.has(w)).join(" ");
       return core && core !== same ? match(core) : [null, 0];
     }
+    // "dry oats" -> the oats row of the ingredient table, only when the ingredient is the whole food.
+    function rawIngredient(food) {
+      const rest = food.replace(RAW_WORDS, " ").split(/\s+/).filter(Boolean).join(" ");
+      const hit = rest ? findIngredient(rest) : null;
+      if (!hit || ratio(hit[0], rest) < 0.82 || !DATA.ingredients[hit[1].code]) return null;
+      return [hit[0], hit[1].code, DATA.ingredients[hit[1].code].n];
+    }
     const eggsIn = dish => { const m = dish.match(/(\d+) (?:eggs?|whites?)/); return m ? parseInt(m[1], 10) : null; };
     function suggestionsFor(food, n = 5) {
       const seen = new Set(), out = [];
@@ -296,6 +330,15 @@
         if (ml) unit = "g";
         if (!food) continue;
         let item = { text: chunk, qty };
+        RAW_WORDS.lastIndex = 0;
+        const raw = unit === "g" && (RAW_WORDS.test(food) || DRY_BY_DEFAULT.has(food)) ? rawIngredient(food) : null;
+        if (raw) {
+          const [name, code, n] = raw, nutrients = {};
+          for (const k of NUTRIENT_KEYS) if (n[k] != null && !Number.isNaN(n[k])) nutrients[k] = round2(n[k] * qty / 100);
+          items.push({ ...item, qty: 1, status: "ok", kind: "ingredient", id: `ing:${code}`,
+            desc: `${fmtG(qty)} g ${name} (raw/dry weight)`, confirm: false, matched_from: food, sizes: [], ask: null, nutrients });
+          continue;
+        }
         let rid = matchMine(food, mine), note = "";
         if (rid && unit !== null && unit !== "g" && unit !== (UNIT_WORDS[mine[rid].makes_unit] || mine[rid].makes_unit)) {
           // "2 pieces tandoori chicken" but the saved recipe is counted per katori: don't guess the piece size.
@@ -308,6 +351,15 @@
             : [r.per_serving, qty, `${r.makes_unit} ${r.name} (my recipe)`];
           items.push({ ...item, status: "ok", kind: "mine", id: `mine:${rid}`, desc, confirm: false, matched_from: food,
             sizes: [], ask: null, nutrients: pick(per, mult) });
+          continue;
+        }
+        const generic = Object.keys(GENERIC_ASK).find(g => GENERIC_ASK[g][0].includes(food));
+        if (generic) {
+          const [, question, choices] = GENERIC_ASK[generic];
+          const pieces = /\b(legs?|pieces?)\b/.test(food) ? "pieces " : "";  // "2 chicken legs" stay pieces
+          const re = new RegExp(`\\b${food.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+          items.push({ ...item, status: "ask", question, choices: Object.entries(choices).map(([label, dish]) => ({
+            label, text: re.test(chunk) ? chunk.replace(re, pieces + dish) : `${chunk} ${dish}` })) });
           continue;
         }
         const group = Object.keys(VARIANTS).find(g => food.includes(g) || g.includes(food.replace(/s+$/, "")));
@@ -342,7 +394,13 @@
         const countable = (kind === "dish" && DATA.dishes[key].serving === "piece") ||
           (kind === "basic" && !CONTAINER_UNITS.some(c => Object.keys(DATA.basics[key].units)[0].startsWith(c)));  // "60 almonds"
         if (unit === null && counted && qty >= BARE_GRAMS_FROM && !countable) unit = "g";  // "200 chicken soup": 200 g, not 200 bowls
-        if (kind === "brand") {
+        if (kind === "brand" && unit === "g") {  // "100 g maggi": weigh it against the pack's own weight
+          const b = BRANDED[key]; row = {};
+          for (const k of NUTRIENT_KEYS) if (b[k] != null) row[k] = b.serving_g ? b[k] * qty / b.serving_g : b[k];
+          desc = b.serving_g ? `${fmtG(qty)} g ${b.name} (${b.brand})`
+            : `${b.serving_label} ${b.name} (${b.brand}) (pack weight unknown: counted 1)`;
+          qty = 1;
+        } else if (kind === "brand") {
           const brandSize = /\bregular\b/.test(chunk) ? "regular" : size;
           let b; [b, qty] = brandPick(key, brandSize, qty, counted); key = b.id; row = {};
           for (const k of NUTRIENT_KEYS) if (b[k] != null) row[k] = b[k];
@@ -369,7 +427,8 @@
             units.find(u => u.startsWith("medium")) || units[0];  // "1 banana" = a medium one
           row = DATA.portions[`basic:${key}:${p}`].n; desc = `${p} ${b.name.toLowerCase()}`;
           if (unit === "g") {  // "100 g tofu": weigh it, don't count 100 servings
-            const per = qty / DATA.portions[`basic:${key}:${p}`].grams; const r2 = {};
+            const grams = ml ? qty * (b.g_per_ml || 1) : qty;  // "5 ml oil" is 4.6 g
+            const per = grams / DATA.portions[`basic:${key}:${p}`].grams; const r2 = {};
             for (const k of NUTRIENT_KEYS) if (row[k] != null) r2[k] = row[k] * per;
             row = r2; desc = `${fmtG(qty)} g ${b.name.toLowerCase()}`; qty = 1;
           }
@@ -386,10 +445,13 @@
               active: sz === (size || "medium") }));
           }
           if (unit === "g" && d.serving_g) {  // "200 g dal": scale by weight
-            const per = qty / d.serving_g; const r2 = {};
-            for (const k of [...NUTRIENT_KEYS, "added_fat_g"]) if (d.n[k] != null) r2[k] = d.n[k] * per;
+            // Pieces: use the calibrated medium piece (recipe piece weights are raw batter/dough).
+            const pm = DATA.portions[`${key}:medium`];
+            const [base, baseG] = d.serving === "piece" && pm && pm.grams > 0 ? [pm.n, pm.grams] : [d.n, d.serving_g];
+            const per = qty / baseG; const r2 = {};
+            for (const k of [...NUTRIENT_KEYS, "added_fat_g"]) if (base[k] != null) r2[k] = base[k] * per;
             row = r2; desc = `${fmtG(qty)} g ${d.dish}`; qty = 1; sizes = [];
-          } else if (unit in UNIT_G && d.serving in SERVING_NOMINAL_G && !(unit === "plate" && plateOf[key])) {
+          } else if (unit in UNIT_G && d.serving in SERVING_NOMINAL_G && !(unit === "plate" && plateOf[key] && !PLATE_NOT_FOR.has(key))) {
             // "1 katori lemon rice", "1 bowl masala oats": the container the user named, not the dish's default.
             const bowlHit = BOWL_G.find(([re]) => re.test(`${d.dish} ${d.category}`));
             const bowlG = bowl && bowlHit && size === null ? bowlHit[1] : null;
@@ -403,12 +465,18 @@
             qty = eggs / eggsIn(d.dish);
             desc = `${fmtG(eggs)}-egg ${d.dish.split("(")[0].trim()}`;
           }
+          if (d.serving === "portion" && (unit === "piece" || (unit === null && counted && qty >= 2))) {
+            // "6 pieces paneer tikka", "2 fish fry": pieces, not 6 portions of 150 g
+            const pg = (PIECE_OF_PORTION_G.find(([re]) => re.test(d.dish)) || [null, PIECE_DEFAULT_G])[1];
+            row = {}; for (const k of [...NUTRIENT_KEYS, "added_fat_g"]) if (d.n[k] != null) row[k] = d.n[k] * pg / d.serving_g;
+            desc = `piece (~${pg} g) ${d.dish}`; sizes = [];
+          }
           if (unit === "piece" && (d.serving === "katori" || d.serving === "small_katori") && d.category === "curry") {
             const frac = PIECE_IN_GRAVY_G / d.serving_g;
             desc = `piece with gravy of ${d.dish} (~${(qty * frac).toFixed(1)} ${d.serving.replace(/_/g, " ")})`;
             row = {}; for (const k of [...NUTRIENT_KEYS, "added_fat_g"]) if (d.n[k] != null) row[k] = d.n[k] * frac;
           }
-          if (plateOf[key] && (unit === "plate" || (unit === null && !counted && PLATE_BY_DEFAULT.has(key)))) {
+          if (plateOf[key] && !PLATE_NOT_FOR.has(key) && (unit === "plate" || (unit === null && !counted && PLATE_BY_DEFAULT.has(key)))) {
             row = DATA.portions[plateOf[key]].n; desc = DATA.portions[plateOf[key]].label; sizes = [];
             kind = "plate"; key = plateOf[key];
           }
