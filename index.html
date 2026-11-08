@@ -502,10 +502,10 @@ function renderPreview() {
   $("#preview").querySelectorAll("[data-replace]").forEach(b => b.onclick = () => replaceChunk(items[b.dataset.idx].text, b.dataset.replace));
 }
 
-// "1 × 1 plate pav bhaji" reads badly: drop the multiplier when the label already says "1 plate".
 // Grams: one decimal under 10 g, whole numbers above, the same everywhere.
 const g = v => fmt(v, v != null && v < 10 ? 1 : 0);
-const qtyLabel = (qty, desc) => (qty === 1 && /^1 /.test(desc)) ? esc(desc) : `${fmt(qty, qty % 1 ? 2 : 0)} × ${esc(desc)}`;
+// "1 × 1 plate pav bhaji" or "1 × 2 tsp corn flour" reads badly: drop the multiplier when the label already has the amount.
+const qtyLabel = (qty, desc) => (qty === 1 && /^\d/.test(desc)) ? esc(desc) : `${fmt(qty, qty % 1 ? 2 : 0)} × ${esc(desc)}`;
 
 function itemHTML(it, idx) {
   if (it.status === "ask") {

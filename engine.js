@@ -451,6 +451,15 @@
           }
         }
         if (!hit) { const ctx = brandFromContext(food, prev); if (ctx) { hit = ["brand", ctx]; score = 0.9; } }
+        const spoon = !hit && (unit === "tsp" || unit === "tbsp") ? rawIngredient(food) : null;
+        if (spoon) {  // "1 tsp corn flour", "2 tbsp sattu": a kitchen ingredient by the spoon
+          const [name, code, n] = spoon, density = DATA.ingredients[code].g_per_ml;
+          const grams = qty * UNIT_G[unit] * (density != null && !Number.isNaN(density) ? density : 1), nutrients = {};
+          for (const k of NUTRIENT_KEYS) if (n[k] != null && !Number.isNaN(n[k])) nutrients[k] = round2(n[k] * grams / 100);
+          items.push({ ...item, qty: 1, status: "ok", kind: "ingredient", id: `ing:${code}`,
+            desc: `${fmtG(qty)} ${unit} ${name} (${Math.round(grams)} g)`, confirm: false, matched_from: food, sizes: [], ask: null, nutrients });
+          continue;
+        }
         if (!hit) { items.push({ ...item, status: "unknown", suggestions: suggestionsFor(food) }); continue; }
         let [kind, key] = hit;
         let sizes = [], ask = null, row, desc;
