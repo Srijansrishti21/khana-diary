@@ -128,7 +128,18 @@
   const DESCRIBERS = new Set(["vegetable", "vegetables", "veg", "veggies", "mixed", "sabzi", "sabzian"]);
   const PIECE_IN_GRAVY_G = 60;
   const FILLER = new Set(["of", "with", "and", "ka", "ki", "ke", "wala", "wali", "some", "thoda", "thodi", "had", "ate",
-    "khaya", "piya", "i", "for", "breakfast", "lunch", "dinner", "snack", "made", "homemade", "my"]);
+    "khaya", "piya", "i", "for", "breakfast", "lunch", "dinner", "snack", "made", "homemade", "my",
+    // Whole sentences ("For lunch I'm having 2 roti"): pronouns, verbs and time words that never name a food.
+    "m", "s", "ve", "ll", "d", "im", "ive", "me", "we", "have", "having", "has", "eat", "eating", "enjoy",
+    "enjoyed", "enjoying", "got", "get", "took", "take", "taking", "drank", "drink", "drinking", "sipped",
+    "sipping", "prepared", "also", "plus", "then", "today", "tonight", "this", "morning", "evening",
+    "afternoon", "night", "quick", "consisted", "included", "includes", "including", "is", "was", "am",
+    "are", "a", "an", "the", "serving", "servings", "cow", "weighing", "about", "around", "approx", "nearly"]);
+  // Phrases in whole sentences that would otherwise read as food or units ("on my plate" is not a plate of food).
+  const SENTENCE_NOISE = [[/\bon (?:my|the) plate\b/g, " "], [/\bi started my day\b/g, " "], [/\bstarted (?:my|the) day\b/g, " "],
+    [/\b(?:a|my) (?:breakfast|lunch|dinner|snack) spread\b/g, " "],
+    [/\b(?:paired|served|along|together) with\b/g, " and "], [/\balongside(?: that| it)?\b/g, " and "],
+    [/\ba mix of\b/g, " "], [/\bconsisted of\b/g, " "]];
   const NUTRIENT_KEYS = ["kcal", "protein_g", "carb_g", "fat_g", "fibre_g", "sugar_g", "satfat_g", "sodium_mg",
     "calcium_mg", "iron_mg", "potassium_mg", "vitc_mg", "folate_ug"];
   const MACROS = ["kcal", "protein_g", "fat_g", "carb_g", "fibre_g"];
@@ -203,9 +214,10 @@
     const joinedNames = nameKeys.filter(n => /\b(with|and)\b/.test(n) && !/\d/.test(n)).sort((x, y) => y.length - x.length)
       .map(n => [new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), n.replace(/ /g, "§").replace(/\b(with|and)\b/g, w => w.toUpperCase())]);
     function splitItems(text) {
-      text = text.toLowerCase().replace(/\+/g, " and ").replace(/&/g, " and ");
+      text = text.toLowerCase().replace(/\+/g, " and ").replace(/&/g, " and ").replace(/’/g, "'");
+      for (const [re, rep] of SENTENCE_NOISE) text = text.replace(re, rep);
       for (const [re, prot] of joinedNames) text = text.replace(re, prot);
-      return text.split(/,|\band\b|\bwith\b|\baur\b|\bsath\b|\bsaath\b/).map(s => s.trim().toLowerCase()).filter(Boolean);
+      return text.split(/,|;|:|\.(?!\d)|\band\b|\bwith\b|\baur\b|\bsath\b|\bsaath\b/).map(s => s.trim().toLowerCase()).filter(Boolean);
     }
     function protectNumbered(chunk) {
       for (const n of numberedNames) {
@@ -218,7 +230,7 @@
       chunk = protectNumbered(chunk).replace(/½/g, " 1/2 ").replace(/¼/g, " 1/4 ").replace(/¾/g, " 3/4 ");
       chunk = chunk.replace(/\d+\s*%/g, " ");
       let prevNum = false;
-      for (const tok of chunk.match(/\d+\/\d+|[\d.]+|[a-z§]+/g) || []) {
+      for (const tok of chunk.match(/\d+\/\d+|\d*\.?\d+|[a-z§]+/g) || []) {
         const afterNum = prevNum; prevNum = /^[\d./]+$/.test(tok);
         if (tok in NUMBER_WORDS && qty !== null && NUMBER_WORDS[tok] === qty) continue;
         if (afterNum && tok in AFTER_NUMBER_UNITS) { unit = AFTER_NUMBER_UNITS[tok]; if (tok === "l") qty *= 1000; }
@@ -228,7 +240,7 @@
         else if (tok in NUMBER_WORDS && qty === null) qty = NUMBER_WORDS[tok];
         else if (FILLER_SIZE.has(tok)) continue;
         else if (tok in SIZE_WORDS) size = SIZE_WORDS[tok];
-        else if (tok in UNIT_WORDS) unit = UNIT_WORDS[tok];
+        else if (tok in UNIT_WORDS) { if (unit !== "g" && unit !== "ml") unit = UNIT_WORDS[tok]; }  // "a 210 g glass": the weight wins
         else if (LITRE_WORDS.has(tok)) { unit = "ml"; qty = (qty || 1) * 1000; }  // "1 litre", "half litre" -> ml
         else if (!FILLER.has(tok)) words.push(tok);
       }
@@ -568,8 +580,10 @@
       for (const k of [3, 2, 1]) {
         for (let i = 0; i + k <= words.length; i++) {
           const ph = words.slice(i, i + k).join(" ");
-          const close = closeMatches(ph, [...KITCHEN_MAP.keys()], 1, 0.82);
-          if (close.length) return [close[0], KITCHEN_MAP.get(close[0])];
+          // Every word must look like a misspelling of its partner: "magic powder" isn't garlic powder.
+          const alike = n => { const a = ph.split(" "), b = n.split(" "); return a.length === b.length && a.every((x, j) => ratio(x, b[j]) >= 0.75); };
+          const close = closeMatches(ph, [...KITCHEN_MAP.keys()], 3, 0.82).find(alike);
+          if (close) return [close, KITCHEN_MAP.get(close)];
         }
       }
       return null;
