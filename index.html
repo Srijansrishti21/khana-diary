@@ -141,6 +141,21 @@ details.more summary::-webkit-details-marker { display: none; }
 .composer .go { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .composer .go:disabled { opacity: .35; }
 .mic.live { color: var(--over-ink); }
+.addtop { display: flex; align-items: center; gap: 10px; }
+.mealseg { flex: 1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mealseg button { height: 36px; font-size: 13px; }
+.searchbox { background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: 14px; padding: 4px 4px 4px 14px; display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.searchbox:focus-within { border-color: var(--fg); }
+.searchbox textarea { flex: 1; min-width: 0; border: 0; outline: none; resize: none; background: transparent; font-size: 17px; line-height: 1.4; padding: 10px 0; min-height: 44px; max-height: 140px; color: var(--fg); }
+.searchbox .iconbtn { border: 0; background: transparent; }
+.match { display: flex; align-items: center; gap: 12px; padding: 12px 0; width: 100%; background: none; border-left: 0; border-right: 0; border-bottom: 0; text-align: left; cursor: pointer; color: var(--fg); }
+.match:first-child { border-top: 0; }
+.match .what { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.match .what b { font-size: 16px; font-weight: 600; }
+.match .what span { font-size: 14px; color: var(--muted); }
+.match .val { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.match .val small { font-weight: 400; color: var(--muted); font-size: 13px; }
+.portion-label { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: -4px; }
 .meals4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .meals4 button { height: 64px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font-size: 12px; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; padding: 0; }
 .meals4 button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
@@ -273,6 +288,7 @@ details.more summary::-webkit-details-marker { display: none; }
   <symbol id="i-search" viewBox="0 0 24 24"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></symbol>
   <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-plate" viewBox="0 0 24 24"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></symbol>
   <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
 </svg>
 
@@ -356,24 +372,24 @@ details.more summary::-webkit-details-marker { display: none; }
 
   <!-- Log food -->
   <div class="screen" id="screen-add">
-    <div class="between" style="align-items:center">
+    <div class="addtop">
       <button class="iconbtn" type="button" data-go="home" aria-label="Back to today"><svg class="ic"><use href="#i-back"/></svg></button>
+      <div class="seg mealseg" id="meals" role="group" aria-label="Meal"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <h1 style="font-size:24px">What did you eat?</h1>
       <small class="muted" id="add-context"></small>
     </div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      <p class="label">Log food</p>
-      <h1>What did you eat?</h1>
+    <div class="searchbox">
+      <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+      <label for="meal-text" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Search food or type your meal</label>
+      <textarea id="meal-text" rows="1" placeholder="Search food, or type 2 roti, dal" autocomplete="off"></textarea>
+      <button class="iconbtn mic" id="mic" type="button" aria-label="Speak your meal"><svg class="ic l"><use href="#i-mic"/></svg></button>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <div class="composer">
-        <label for="meal-text" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">What did you eat?</label>
-        <textarea id="meal-text" rows="1" placeholder="2 roti, dal and chai"></textarea>
-        <button class="iconbtn mic" id="mic" type="button" aria-label="Speak your meal"><svg class="ic l"><use href="#i-mic"/></svg></button>
-        <button class="go" type="button" id="go" aria-label="Count it"><svg class="ic"><use href="#i-arrow"/></svg></button>
-      </div>
-      <small class="muted" style="padding-left:4px" id="add-hint">Write it the way you'd say it. Sizes, katori, tsp and grams all work.</small>
+    <div id="matches" hidden>
+      <p class="label" style="margin-bottom:8px" id="matches-label">Matches</p>
+      <div class="group" id="match-list" role="listbox" aria-label="Matching foods"></div>
     </div>
-    <div class="meals4" id="meals" role="group" aria-label="Meal"></div>
 
     <div id="preview" aria-live="polite"></div>
 
@@ -639,6 +655,7 @@ async function api(path, opts = {}) {
     return { days };
   }
   if (route === "/api/templates") return { templates: TEMPLATES };
+  if (route === "/api/search") return { results: eng.search(q.q || "", recipes) };
   if (route === "/api/day" && method === "GET") return { date: q.date, entries: daylog[q.date] || [] };
   if (route === "/api/day" && method === "POST") {
     const entry = { id: uid(), meal: body.meal || "Meal", text: body.text || "", items: body.items || [],
@@ -747,17 +764,69 @@ const calRing = (kcal, goal, r, w) => kcal > goal
 
 // ---- Log food ----
 function renderMeals() {
-  $("#meals").innerHTML = MEALS.map(m => `<button type="button" aria-pressed="${m === state.meal}" data-m="${m}">${icon(MEAL_ICON[m])}${m}</button>`).join("");
+  $("#meals").innerHTML = MEALS.map(m => `<button type="button" aria-pressed="${m === state.meal}" data-m="${m}">${m}</button>`).join("");
   updateAddButton();
 }
 $("#meals").onclick = e => { const b = e.target.closest("button"); if (b) { state.meal = b.dataset.m; renderMeals(); } };
 $("#examples").innerHTML = EXAMPLES.map(x => `<button type="button" class="chip">${esc(x)}</button>`).join("");
 $("#examples").onclick = e => { const b = e.target.closest("button"); if (b) { $("#meal-text").value = b.textContent; analyze(); } };
 
-let timer;
-$("#meal-text").addEventListener("input", () => { autosize(); clearTimeout(timer); timer = setTimeout(analyze, 350); });
-$("#meal-text").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addToDay(); } });
-$("#go").onclick = () => { clearTimeout(timer); analyze(); };
+let timer, searchTimer;
+$("#meal-text").addEventListener("input", () => {
+  autosize(); clearTimeout(timer); clearTimeout(searchTimer);
+  searchTimer = setTimeout(findMatches, 120); timer = setTimeout(analyze, 450);
+});
+$("#meal-text").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); hideMatches(); if (state.items.some(i => i.status === "ok")) addToDay(); else analyze(); }
+});
+
+// The food being typed now: whatever comes after the last comma, "and", "aur", "with" or "+".
+const SEP = /,|\+|\b(?:and|aur|with|sath|saath)\b/gi;
+function currentChunk() {
+  const v = $("#meal-text").value, parts = v.split(SEP);
+  const last = parts[parts.length - 1] || "";
+  return { text: last.trim(), start: v.length - last.length };
+}
+// "small katori Poha chivda" -> unit "small katori", name "Poha chivda"; "tsp ghee" -> "tsp", "Ghee".
+const UNIT_WORDS = new Set(["small", "medium", "large", "regular", "katori", "plate", "cup", "glass", "tsp", "tbsp", "piece", "slice",
+  "portion", "cube", "bowl", "pack", "serving", "tea", "burger", "idli", "roll", "packet", "bar", "scoop"]);
+function nameParts(desc, qty) {
+  const words = splitDesc(desc)[0].replace(/^1 /, "").split(" ");
+  let i = 0;
+  while (i < words.length - 1 && (UNIT_WORDS.has(words[i]) || /^\d/.test(words[i]))) i++;
+  const name = words.slice(i).join(" "), unit = words.slice(0, i).join(" ");
+  return { name: name[0].toUpperCase() + name.slice(1), unit: unit ? `${fmt(qty, qty % 1 ? 2 : 0)} ${unit}` : "1 serving" };
+}
+// "2 bade poh" -> amount "2 bade ", food "poh": search the food, keep the amount when a match is picked.
+const AMOUNT = /^(?:(?:\d+(?:\.\d+)?|\d+\/\d+|ek|do|teen|char|chaar|paanch|half|aadha|aadhi|dedh|dhai)\s+)?(?:(?:small|medium|large|big|bada|bade|badi|chota|chhota|chhoti)\s+)?(?:(?:katori|katoris|plate|plates|cup|cups|glass|tsp|tbsp|piece|pieces|bowl|slice|slices)\s+(?:of\s+)?)?/i;
+function splitAmount(text) { const a = (text.match(AMOUNT) || [""])[0]; return { amount: a, food: text.slice(a.length).trim() }; }
+let matchesFor = "";
+async function findMatches() {
+  const { food } = splitAmount(currentChunk().text);
+  if (food.length < 2 || food === matchesFor) { if (food.length < 2) hideMatches(); return; }
+  let results = [];
+  try { results = (await api(`/api/search?q=${encodeURIComponent(food)}`)).results || []; } catch {}
+  if (splitAmount(currentChunk().text).food !== food) return;  // typing moved on
+  matchesFor = food;
+  if (!results.length) { hideMatches(); return; }
+  $("#matches-label").textContent = `Matches for “${food}”`;
+  results = results.slice(0, 5);
+  $("#match-list").innerHTML = results.map((r, i) => {
+    const p = nameParts(r.desc, r.qty);
+    return `<button type="button" class="match" role="option" data-match="${i}">
+      <span class="tile">${icon(r.mine ? "katori" : "plate")}</span>
+      <span class="what"><b>${esc(p.name)}</b><span>${r.ask ? "Choose the type next" : `${esc(p.unit)}${r.mine ? " · your recipe" : ""}`}</span></span>
+      ${r.kcal == null ? "" : `<span class="val">${comma(r.kcal)} <small>kcal</small></span>`}</button>`;
+  }).join("");
+  $("#match-list").querySelectorAll("[data-match]").forEach(b => b.onclick = () => pickMatch(results[+b.dataset.match]));
+  $("#matches").hidden = false;
+}
+function hideMatches() { $("#matches").hidden = true; matchesFor = ""; }
+function pickMatch(r) {
+  const box = $("#meal-text"), { start, text } = currentChunk(), head = box.value.slice(0, start);
+  box.value = `${head}${head && !/\s$/.test(head) ? " " : ""}${splitAmount(text).amount}${r.text}`;
+  autosize(); hideMatches(); clearTimeout(timer); analyze(); box.focus();
+}
 function autosize() { const t = $("#meal-text"); t.style.height = "auto"; t.style.height = Math.min(160, t.scrollHeight) + "px"; }
 
 async function analyze() {
@@ -778,7 +847,9 @@ function replaceChunk(oldText, newText) {
 }
 
 function renderPreview() {
-  const items = state.items, onAdd = $("#screen-add").classList.contains("active");
+  const typing = !$("#matches").hidden, last = state.items[state.items.length - 1];
+  const items = typing && last && last.status !== "ok" ? state.items.slice(0, -1) : state.items;  // still choosing it above
+  const onAdd = $("#screen-add").classList.contains("active");
   $("#addbar").hidden = !items.length || !onAdd;
   $("#tabbar").hidden = onAdd && items.length > 0;  // the add bar takes the tab bar's place while a meal is ready
   if (!items.length) { $("#preview").innerHTML = ""; $("#preview").style.paddingBottom = ""; return; }
@@ -786,7 +857,7 @@ function renderPreview() {
   const tot = sum(ok.map(i => i.nutrients));
   const skipped = items.filter(i => i.status !== "ok").map(i => `“${i.name || i.text}”`);
   $("#preview").style.paddingBottom = "190px";  // room for the add bar
-  $("#preview").innerHTML = `<div class="between" style="margin-bottom:10px"><p class="label">Counted · ${ok.length} ${ok.length === 1 ? "food" : "foods"}</p><small class="muted">kcal</small></div>
+  $("#preview").innerHTML = `<div class="between" style="margin-bottom:10px"><p class="label">Your meal · ${ok.length} ${ok.length === 1 ? "food" : "foods"}</p><small class="muted">Pick the portion</small></div>
     <div class="group">${items.map((it, idx) => itemHTML(it, idx)).join("")}</div>`;
   $("#preview").querySelectorAll("[data-replace]").forEach(b => b.onclick = () => replaceChunk(items[b.dataset.idx].text, b.dataset.replace));
   $("#preview").querySelectorAll("[data-make]").forEach(b => b.onclick = () => startFromDish(b.dataset.make));
@@ -802,7 +873,7 @@ function renderPreview() {
 function updateAddButton(skipping = false, okCount = state.items.filter(i => i.status === "ok").length) {
   const btn = $("#add");
   btn.disabled = !okCount;
-  btn.textContent = `Add to ${state.meal.toLowerCase()}${state.date !== today ? ` on ${shortDate(state.date)}` : ""}${skipping ? " without it" : ""}`;
+  btn.textContent = `Log to ${state.meal.toLowerCase()}${state.date !== today ? ` on ${shortDate(state.date)}` : ""}${skipping ? " without it" : ""}`;
 }
 $("#add").onclick = addToDay;
 
@@ -842,7 +913,7 @@ function itemHTML(it, idx) {
 function sizesHTML(it, idx) {
   const parts = it.sizes.map(s => { const [short, ...hint] = s.label.split(":"); return { ...s, short, hint: hint.join(":").trim() }; });
   const active = parts.find(s => s.active);
-  return `${it.ask ? `<span class="sub">${esc(it.ask)}</span>` : ""}<div class="seg sizes">${parts.map(s =>
+  return `<span class="portion-label">Portion</span><div class="seg sizes">${parts.map(s =>
     `<button type="button" aria-pressed="${s.active}" aria-label="${esc(s.label)}" data-idx="${idx}" data-replace="${esc(s.text)}">${esc(s.short)}</button>`).join("")}</div>
     ${active && active.hint ? `<span class="sub">${esc(active.hint[0].toUpperCase() + active.hint.slice(1))}</span>` : ""}`;
 }
@@ -861,7 +932,7 @@ async function addToDay() {
   state.entries.push(entry);
   const kcal = Math.round(ok.reduce((t, i) => t + (i.nutrients.kcal || 0), 0));
   $("#meal-text").value = ""; autosize(); state.items = []; $("#add-browse").hidden = false;
-  renderPreview(); renderDay(); loadSuggestions(); loadWeek();
+  hideMatches(); renderPreview(); renderDay(); loadSuggestions(); loadWeek();
   go("home"); toast(`Added ${comma(kcal)} kcal to ${state.meal.toLowerCase()}`); loadRecent();
 }
 

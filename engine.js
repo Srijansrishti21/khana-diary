@@ -878,7 +878,35 @@
       return result;
     }
 
-    return { analyze, calculateRecipe, recipeDiet, targets, suggest, counts: {
+    // Search as you type: own recipes first, then names that start with the words, then names containing them,
+    // then close spellings. Each result carries what one standard serving logs as, so the list shows calories.
+    function search(query, mine = {}, n = 8) {
+      const q = String(query || "").toLowerCase().trim();
+      if (q.length < 2) return [];
+      const out = [], seen = new Set();
+      for (const [rid, r] of Object.entries(mine)) {
+        if ([r.name.toLowerCase(), ...(r.aliases || [])].some(x => x.includes(q))) { out.push(r.name.toLowerCase()); seen.add(`mine:${rid}`); }
+      }
+      const byLen = (a, b) => a.length - b.length;
+      const starts = nameKeys.filter(k => k.startsWith(q)).sort(byLen);
+      const inside = nameKeys.filter(k => !k.startsWith(q) && ` ${k}`.includes(` ${q}`)).sort(byLen);
+      const close = q.length >= 3 && starts.length + inside.length < 3 ? closeMatches(q, nameKeys, 10, q.includes(" ") ? 0.78 : 0.6) : [];  // two words must be close
+      for (const k of [...starts, ...inside, ...close]) {
+        if (out.length >= n) break;
+        const key = names.get(k).join("|");
+        if (seen.has(key)) continue;
+        seen.add(key); out.push(k);
+      }
+      const shown = new Set();
+      return out.map(text => {
+        const it = analyze(text, mine)[0];
+        if (!it || (it.status !== "ok" && it.status !== "ask")) return null;
+        return it.status === "ok" ? { text, desc: it.desc, qty: it.qty, kcal: Math.round(it.nutrients.kcal || 0), mine: it.kind === "mine" }
+          : { text, desc: text, qty: 1, kcal: null, ask: true, mine: false };
+      }).filter(r => r && !shown.has(r.desc) && shown.add(r.desc));
+    }
+
+    return { analyze, search, calculateRecipe, recipeDiet, targets, suggest, counts: {
       dishes: Object.keys(DATA.dishes).length, portions: Object.keys(DATA.portions).length,
       basics: Object.keys(DATA.basics).length, names: names.size, version: DATA.version } };
   }
