@@ -115,7 +115,8 @@
   const RAW_WORDS = /\b(raw|dry|uncooked|kacha|kachcha|kaccha|kachha)\b/g;
   // Words that mean the same food word: "chicken shorba" = "chicken soup".
   const SYNONYMS = { shorba: "soup", shorbha: "soup", yakhni: "soup", sabji: "sabzi", subzi: "sabzi", subji: "sabzi",
-    sabjee: "sabzi", bhurjee: "bhurji", chawal: "rice", salaad: "salad" };
+    sabjee: "sabzi", bhurjee: "bhurji", chawal: "rice", salaad: "salad",
+    allo: "aloo", alu: "aloo", aaloo: "aloo", baigan: "baingan", bengan: "baingan", baingun: "baingan" };
   // A bare number this big ("200 chicken soup") is grams or ml, not 200 servings.
   const BARE_GRAMS_FROM = 50;
   const CONTAINER_UNITS = ["glass", "cup", "katori", "small katori", "tsp", "tbsp", "portion"];
@@ -292,6 +293,26 @@
       const core = same.split(/\s+/).filter(w => w && !OPTIONAL_WORDS.has(w)).join(" ");
       return core && core !== same ? match(core) : [null, 0];
     }
+    // "chana dal and bharta, I took 1 katori dal and half katori bharta": a later mention with an amount gives the amount
+    // of the food named earlier without one; it is not a second dal. Combos like "rajma chawal" are left alone.
+    function mergeFollowups(chunks) {
+      const parsed = chunks.map(c => parseItem(c)), out = [...chunks], drop = new Set();
+      parsed.forEach(([qty, , unit, food], j) => {
+        if (!food || (qty === null && unit === null)) return;
+        for (let i = j - 1; i >= 0; i--) {
+          const [q2, , u2, earlier] = parsed[i];
+          if (drop.has(i) || q2 !== null || u2 !== null || !earlier) continue;
+          const hit = match(earlier)[0], have = new Set(earlier.split(" "));
+          if (food.split(" ").every(w => have.has(w)) && !(hit && hit[0] === "plate")) {
+            const amount = chunks[j].replace(new RegExp(`\\b(?:${food.split(" ").map(escapeRe).join("|")})\\b`, "g"), " ");
+            out[i] = `${amount.trim()} ${earlier}`;
+            drop.add(j);
+            break;
+          }
+        }
+      });
+      return out.filter((_, k) => !drop.has(k));
+    }
     // "2 momos" + "chicken" -> "2 chicken momos" (reads naturally and comes back that way in "Eat this again").
     function withWord(chunk, food, word) {
       const re = new RegExp(`\\b${escapeRe(food)}\\b`);
@@ -345,7 +366,7 @@
 
     function analyze(text, mine = {}) {
       const items = [];
-      const queue = splitItems(text);
+      const queue = mergeFollowups(splitItems(text));
       while (queue.length) {
         let chunk = queue.shift();
         const found = mods => { const m = mods.find(([re]) => { re.lastIndex = 0; return re.test(chunk); }); return m ? m[1] : null; };
